@@ -1,0 +1,9 @@
+name: "BFAST"
+output:
+  html_document:
+    theme: flatly # specifies the theme
+navbar:
+  left:
+    - text: "Home"
+      href: index.html
+output_dir: "." # if publishing on Github pages
