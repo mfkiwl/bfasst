@@ -117,7 +117,7 @@ class Conformal_CompareTool(CompareTool):
         self.copy_log_from_remote_machine(client)
         client.close()
 
-        if status.status == CompareStatus.TIMEOUT:
+        if status == CompareStatus.TIMEOUT:
             with open(log_path, "a") as fp:
                 fp.write("\nTimeout\n")
 

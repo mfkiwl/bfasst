@@ -4,17 +4,25 @@ import subprocess
 import time
 
 import bfasst
-from bfasst import paths
+from bfasst import paths, flows
 from bfasst.synth.base import SynthesisTool
 from bfasst.status import Status, SynthStatus
 
 YOSYS_SCRIPT_TEMPLATE = "ex_yos_tech.yos"
+YOSYS_XILINX_SYNTH_SCRIPT_TEMPLATE = "ex_yos_tech_xilinx.yos"
+YOSYS_LATTICE_SYNTH_SCRIPT_TEMPLATE = "yos_synth_tech_lattice.yos"
 YOSYS_SCRIPT_FILE = "script.yos"
 YOSYS_LOG_FILE = "yosys.log"
 
 
 class Yosys_Tech_SynthTool(SynthesisTool):
     TOOL_WORK_DIR = "yosys_synth"
+
+    def __init__(self, cwd, vendor):
+        super().__init__(cwd)
+
+        assert type(vendor) is flows.Vendor
+        self.vendor = vendor
 
     def create_netlist(self, design):
         # Target netlist output
@@ -30,15 +38,26 @@ class Yosys_Tech_SynthTool(SynthesisTool):
 
         # Run Yosys on the design
         # This assumes that the VHDL module *is* installed!
+        # yosys_path = "/home/jthompson3198/bfasst/third_party/yosys"
+        yosys_path = str(paths.ROOT_PATH) + "/third_party/yosys"
         cmd = [
-            os.path.join(bfasst.config.YOSYS_INSTALL_DIR, "yosys"),     #  pylint: disable=E1101
-            "-m",
-            "vhdl",
+            os.path.join(yosys_path, "yosys"),  #  pylint: disable=E1101
             "-s",
             YOSYS_SCRIPT_FILE,
             "-l",
             YOSYS_LOG_FILE,
         ]
+        # cmd = [
+        #     os.path.join(
+        #         bfasst.config.YOSYS_INSTALL_DIR, "yosys"
+        #     ),  #  pylint: disable=E1101
+        #     "-m",
+        #     "vhdl",
+        #     "-s",
+        #     YOSYS_SCRIPT_FILE,
+        #     "-l",
+        #     YOSYS_LOG_FILE,
+        # ]
         try:
             p = subprocess.run(
                 cmd,
@@ -63,15 +82,25 @@ class Yosys_Tech_SynthTool(SynthesisTool):
         # It's a little messy, but I want to just call my existing script that
         #   does this
         path_to_script_builder = paths.SCRIPTS_PATH / "yosys" / "createYosScript.py"
-        script_template_file = paths.YOSYS_RESOURCES / YOSYS_SCRIPT_TEMPLATE
+        if self.vendor == flows.Vendor.XILINX:
+            script_template_file = paths.YOSYS_RESOURCES / YOSYS_XILINX_SYNTH_SCRIPT_TEMPLATE
+        elif self.vendor == flows.Vendor.LATTICE:
+            script_template_file = paths.YOSYS_RESOURCES / YOSYS_LATTICE_SYNTH_SCRIPT_TEMPLATE
+        else:
+            script_template_file = paths.YOSYS_RESOURCES / YOSYS_SCRIPT_TEMPLATE
         yosys_script_file = self.work_dir / YOSYS_SCRIPT_FILE
 
         # TODO: Figure out how to add VHDL library files to the yosys vhdl flow
-        file_paths = str(design.full_path / design.top_file)
-        for design_file in design.verilog_files:
-            file_paths += " " + str(design.full_path / design_file)
-        for design_file in design.vhdl_files:
-            file_paths += " " + str(design.full_path / design_file)
+        # file_paths = str(design.full_path / design.top_file)
+        # for design_file in design.verilog_files:
+        #     file_paths += " " + str(design.full_path / design_file)
+        # for design_file in design.vhdl_files:
+        #     file_paths += " " + str(design.full_path / design_file)
+        file_paths = str(design.rel_path / design.top_file_path)
+        for design_file in design.verilog_file_paths:
+            file_paths += " " + str(design.rel_path / design_file)
+        for design_file in design.vhdl_file_paths:
+            file_paths += " " + str(design.rel_path / design_file)
         # TODO: Add the same error handling as in other synth flows
         try:
             p = subprocess.run(

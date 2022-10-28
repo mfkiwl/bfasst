@@ -57,6 +57,7 @@ class Flows(Enum):
     GATHER_IMPL_DATA = "gather_impl_data"
     CONFORMAL_ONLY = "conformal_only"
     XILINX = "xilinx"
+    YOSYS_ONLY = "yosys_only"
 
 
 # This uses a lambda so that I don't have to define all of the functions before this point
@@ -76,6 +77,7 @@ flow_fcn_map = {
     Flows.GATHER_IMPL_DATA: lambda: flow_gather_impl_data,
     Flows.CONFORMAL_ONLY: lambda: flow_conformal_only,
     Flows.XILINX: lambda: flow_xilinx,
+    Flows.YOSYS_ONLY: lambda: flow_yosys_only,
 }
 
 
@@ -150,7 +152,8 @@ def vivado_impl(design, build_dir, flow_args, ooc=False):
 
 def yosys_synth(design, build_dir, flow_args):
     '''Synthesize using Yosys'''
-    synth_tool = Yosys_Tech_SynthTool(build_dir)
+    vendor = Vendor.XILINX if not flow_args else Vendor[flow_args.upper()]
+    synth_tool = Yosys_Tech_SynthTool(build_dir, vendor)
     return synth_tool.create_netlist(design)
 
 
@@ -405,6 +408,38 @@ def flow_yosys_tech_synplify_conformal(design, flow_args, build_dir):
 
     # Run conformal
     #TODO No Vendor was originally specified
+    status = conformal_cmp(design, build_dir, flow_args[FlowArgs.CMP])
+
+    return status
+
+
+def flow_yosys_only(design, flow_args, build_dir):
+    """Synthesize with yosys, inject errors, optimize and implement
+    with icecube2 Synplify, reverse with icestorm, and compare
+    with Onespin"""
+    # import bfasst
+    from bfasst import paths
+
+    print(paths.YOSYS_RESOURCES)
+    
+    # Set the results file path so it can be used in the different tools
+    design.results_summary_path = build_dir / "results_summary.txt"
+    
+
+    # Run the Yosys synthesizer
+    status = yosys_synth(design, build_dir, flow_args[FlowArgs.SYNTH])
+
+    # return design.yosys_netlist_path
+    design.reversed_netlist_path = design.yosys_netlist_path
+    assert design.netlist_path is not None
+    assert design.reversed_netlist_path is not None
+
+    yosys_netlist_path = design.netlist_path
+    # design.golden_sources.append(design.top_file_path)
+    design.golden_sources = [design.top_file_path]
+    design.golden_sources.append(design.top_file_path)
+    design.golden_is_verilog = True
+
     status = conformal_cmp(design, build_dir, flow_args[FlowArgs.CMP])
 
     return status
