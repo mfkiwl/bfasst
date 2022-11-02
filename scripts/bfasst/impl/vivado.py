@@ -84,6 +84,43 @@ class Vivado_ImplementationTool(ImplementationTool):
             # fp.write("write_edif -force {" + str(design.netlist_path) + "}\n")
             fp.write("} ] } { exit 1 }\n")
             fp.write("exit\n")
+    
+    def run_implementation_only(self, design, log_path):
+        tcl_path = self.work_dir / ("impl.tcl")
+        edif_path = self.cwd / (design.top + ".bit")
+
+        with open(tcl_path, "w") as fp:
+            # fp.write("set_part " + bfasst.config.PART + "\n")
+            fp.write("if { [ catch {\n")
+            # fp.write("read_edif " + str(design.netlist_path.parent) + "/yosys_synth/yosys.edf" + "\n")
+            # fp.write("read_edif " + str(design.netlist_path.parent) + "/yosys_synth/" + pathlib.Path(edif_path).stem + ".edf" + "\n")
+            fp.write("read_edif " + str(design.netlist_path.parent) + "/yosys_synth/" + design.top + ".edf" + "\n")
+
+            # for vf in design.verilog_files:
+            #     fp.write("read_verilog " + str(design.))
+
+            fp.write("set_property design_mode GateLvl [current_fileset]\n")
+            # fp.write(
+            #     "set_property edif_top_file "
+            #     + str(design.netlist_path)
+            #     #  + str(design.top_file_path.stem)
+            #     + " [current_fileset]\n"
+            # )
+            fp.write("link_design -part " + bfasst.config.PART + "\n")
+            if not self.ooc:
+                fp.write("read_xdc " + str(design.constraints_path) + "\n")
+            fp.write("opt_design\n")
+            fp.write("place_design\n")
+            fp.write("route_design\n")
+            # fp.write("write_checkpoint -force -file " + str(self.work_dir / "design.dcp") + "\n")
+            # fp.write("write_edif -force -file " + str(design.impl_netlist_path.with_suffix(".edf")) + "\n")
+            # fp.write("write_edif -force -file " + str(design.impl_netlist_path)[:-2] + ".edif" + "\n")
+            fp.write("write_verilog -force -file " + str(design.impl_netlist_path) + "\n")
+            if not self.ooc:
+                fp.write("write_bitstream -force " + str(design.bitstream_path) + "\n")
+            # fp.write("write_edif -force {" + str(design.netlist_path) + "}\n")
+            fp.write("} ] } { exit 1 }\n")
+            fp.write("exit\n")
 
         with open(log_path, "w") as fp:
             cmd = [str(VIVADO_BIN_PATH), "-mode", "tcl", "-source", str(tcl_path)]

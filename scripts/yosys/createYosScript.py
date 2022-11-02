@@ -65,6 +65,10 @@ def main():
                         print_or_write(of, "read_verilog " + src + "\n")
                     else:
                         print("Unrecognized file type", src)
+            if line.strip() == "# Run xilinx synthesis passes":
+                # print_or_write(of, "synth_xilinx -edif " + "yosys.edif" + "\n")
+                import pathlib
+                print_or_write(of, "synth_xilinx -edif " + pathlib.Path(src).stem + ".edf" + " -top " + pathlib.Path(src).stem + "\n")
             if line.strip() == "# Now write the verilog output":
                 print_or_write(of, "write_verilog " + out_netlist + "\n")
     print_or_write(of, "\n")

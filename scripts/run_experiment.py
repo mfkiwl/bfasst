@@ -24,6 +24,11 @@ statuses = None
 running_list = None
 print_lock = None
 designs_list = []
+# flows_list = ["IC2_lse_conformal", "IC2_synplify_conformal", "synplify_IC2_icestorm_onespin", 
+#     "yosys_tech_lse_conformal", "yosys_tech_synplify_conformal", "yosys_tech_synplify_onespin", 
+#     "yosys_synplify_error_onespin", "xilinx_conformal", "xilinx_conformal_impl", "xilinx_yosys_impl", 
+#     "xilinx_yosys_waveform", "gather_impl_data", "conformal_only", "xilinx", "yosys_only", "yosys_synth_vivado_impl"]
+flows_list = ["yosys_only", "yosys_synth_vivado_impl"]
 
 
 def print_running_list():
@@ -71,11 +76,10 @@ def chk_html(html_path):
     if Path(html_path).resolve().is_file() == 0:
         tmp_html = open(html_path, "w")
         tmp_html.write("<!DOCTYPE html>\n<html>\n<style>\ntable, th, td {\n\tborder:1px solid black;\n}\n</style>\n<body>\n\n<h2>BFASST Experiment Runs and Results</h2>\n")
-        tmp_html.write("<table>\n<thead>\n\t<tr>\n\t\t<th>Design</th>\n\t\t<th>IC2_lse_conformal</th>\n\t\t<th>IC2_synplify_conformal</th>\n\t\t<th>synplify_IC2_icestorm_onespin</th> \
-        \n\t\t<th>yosys_tech_lse_conformal</th>\n\t\t<th>yosys_tech_synplify_conformal</th>\n\t\t<th>yosys_tech_synplify_onespin</th>\n\t\t<th>yosys_synplify_error_onespin</th>\n\t\t \
-        <th>xilinx_conformal</th>\n\t\t<th>xilinx_conformal_impl</th>\n\t\t<th>xilinx_yosys_impl</th>\n\t\t<th>xilinx_yosys_waveform</th>\n\t\t<th>gather_impl_data</th>\n\t\t<th>conformal_only</th> \
-        \n\t\t<th>xilinx</th>\n\t\t<th>yosys_only</th>\n\t</tr>\n</thead>\n<tbody>\n</tbody>\n</table>")
-        tmp_html.write("\n\n<p>To run these designs yourself, check out the <a href=\"https://github.com/byuccl/bfasst\">BFASST Github repository</a>.</p>\n\n</body>\n</html>")
+        tmp_html.write("<table>\n<thead>\n\t<tr>\n\t\t<th>Design</th>")
+        for flow in flows_list:
+            tmp_html.write("\n\t\t<th>" + str(flow) + "</th>")
+        tmp_html.write("\n\t</tr>\n</thead>\n<tbody>\n</tbody>\n</table>\n\n<p>To run these designs yourself, check out the <a href=\"https://github.com/byuccl/bfasst\">BFASST Github repository</a>.</p>\n\n</body>\n</html>")
         tmp_html.close()
 
 
@@ -103,11 +107,6 @@ def write_html(htmlStr, idx_html_path):
 
 
 def html_update(equivalence, design, flow_fcn):
-    flows_list = ["IC2_lse_conformal", "IC2_synplify_conformal", "synplify_IC2_icestorm_onespin", 
-    "yosys_tech_lse_conformal", "yosys_tech_synplify_conformal", "yosys_tech_synplify_onespin", 
-    "yosys_synplify_error_onespin", "xilinx_conformal", "xilinx_conformal_impl", "xilinx_yosys_impl", 
-    "xilinx_yosys_waveform", "gather_impl_data", "conformal_only", "xilinx", "yosys_only"]
-    # flows_list = ["yosys_only"]
 
     idx_html_path = "./index.html"
 
@@ -175,6 +174,7 @@ def list_maker(design_dict={}, go=False):
             file1.close()
             # os.remove("temp.txt")
             pathlib.Path("./temp.txt").unlink()
+            print("index.html updated") # Do nothing
         except:
             chk_html(idx_html_path)
             print("index.html unchanged") # Do nothing

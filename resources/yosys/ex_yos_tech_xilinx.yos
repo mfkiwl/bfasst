@@ -6,7 +6,7 @@
 # read_verilog file.v
 
 # Run xilinx synthesis passes
-synth_xilinx
+# xilinx synth
 
 # Now write the verilog output
 # write_verilog yosys_out.v
