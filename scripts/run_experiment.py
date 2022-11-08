@@ -28,7 +28,7 @@ designs_list = []
 #     "yosys_tech_lse_conformal", "yosys_tech_synplify_conformal", "yosys_tech_synplify_onespin", 
 #     "yosys_synplify_error_onespin", "xilinx_conformal", "xilinx_conformal_impl", "xilinx_yosys_impl", 
 #     "xilinx_yosys_waveform", "gather_impl_data", "conformal_only", "xilinx", "yosys_only", "yosys_synth_vivado_impl"]
-flows_list = ["yosys_only", "yosys_synth_vivado_impl"]
+flows_list = ["yosys_only", "yosys_synth_vivado_impl", "vivado_impl_fasm_bit", "full_flow"]
 
 
 def print_running_list():

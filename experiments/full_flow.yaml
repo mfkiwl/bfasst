@@ -2,6 +2,6 @@ design_dirs:
     - basic/
     - ooc/
 
-flow: yosys_synth_vivado_impl
+flow: full_flow
 
 # synth: "-mode out_of_context"

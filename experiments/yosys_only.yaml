@@ -1,6 +1,6 @@
 design_dirs:
     - basic/
-    # - ooc/
+    - ooc/
 
 flow: yosys_only
 

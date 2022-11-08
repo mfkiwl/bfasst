@@ -8,8 +8,28 @@ import pathlib
 import bfasst
 from bfasst.impl.base import ImplementationTool
 from bfasst.status import Status, ImplStatus
+from bfasst.synth import vivado_ioparse
 from bfasst.config import VIVADO_BIN_PATH
 from bfasst.tool import ToolProduct
+
+
+def xdc_line(pin):
+    return (
+        "set_property -dict "
+        f"{{ PACKAGE_PIN {pin[0]}   IOSTANDARD LVCMOS33 }} "
+        f"[get_ports {{ {pin[1]} }}];\n"
+    )
+
+
+def write_xdc(pinmap, stream):
+    for pin in pinmap:
+        stream.write(xdc_line(pin))
+
+
+def extract_contraints(design, report_io_path):
+    with open(design.constraints_path, "w") as fp:
+        design.mapped_io = tuple(vivado_ioparse.map_pins(report_io_path))
+        write_xdc(design.mapped_io, fp)
 
 
 class Vivado_ImplementationTool(ImplementationTool):
@@ -85,9 +105,11 @@ class Vivado_ImplementationTool(ImplementationTool):
             fp.write("} ] } { exit 1 }\n")
             fp.write("exit\n")
     
-    def run_implementation_only(self, design, log_path):
+    def run_implementation_yosys(self, design, log_path):
         tcl_path = self.work_dir / ("impl.tcl")
-        edif_path = self.cwd / (design.top + ".bit")
+        design.bitstream_path = self.cwd / (design.top + ".bit")
+        design.constraints_path = self.cwd / "constraints.xdc"
+        report_io_path = str(design.netlist_path.parent) + "/yosys_synth/report_io.txt"
 
         with open(tcl_path, "w") as fp:
             # fp.write("set_part " + bfasst.config.PART + "\n")
@@ -107,17 +129,21 @@ class Vivado_ImplementationTool(ImplementationTool):
             #     + " [current_fileset]\n"
             # )
             fp.write("link_design -part " + bfasst.config.PART + "\n")
-            if not self.ooc:
-                fp.write("read_xdc " + str(design.constraints_path) + "\n")
+            # if not self.ooc:
+            #     fp.write("read_xdc " + str(design.constraints_path) + "\n")
             fp.write("opt_design\n")
             fp.write("place_design\n")
             fp.write("route_design\n")
-            # fp.write("write_checkpoint -force -file " + str(self.work_dir / "design.dcp") + "\n")
+            fp.write("write_checkpoint -force -file " + str(self.work_dir / "design.dcp") + "\n")
             # fp.write("write_edif -force -file " + str(design.impl_netlist_path.with_suffix(".edf")) + "\n")
             # fp.write("write_edif -force -file " + str(design.impl_netlist_path)[:-2] + ".edif" + "\n")
             fp.write("write_verilog -force -file " + str(design.impl_netlist_path) + "\n")
-            if not self.ooc:
-                fp.write("write_bitstream -force " + str(design.bitstream_path) + "\n")
+            # report_io_path = str(design.netlist_path.parent) + "/yosys_synth/report_io.txt"
+            fp.write("report_io -force -file " + report_io_path + "\n")
+
+            # if not self.ooc:
+            #     fp.write("read_xdc " + str(design.constraints_path) + "\n")
+            #     fp.write("write_bitstream -force " + str(design.bitstream_path) + "\n")
             # fp.write("write_edif -force {" + str(design.netlist_path) + "}\n")
             fp.write("} ] } { exit 1 }\n")
             fp.write("exit\n")
@@ -141,8 +167,76 @@ class Vivado_ImplementationTool(ImplementationTool):
             proc.communicate()
             if proc.returncode:
                 return Status(ImplStatus.ERROR)
+        
+        extract_contraints(design, report_io_path) 
+        tcl_path = self.work_dir / ("impl_2.tcl")
+        with open(tcl_path, "w") as fp:
+            if not self.ooc:
+                fp.write("if { [ catch {\n")
+                fp.write("open_checkpoint -file " + str(self.work_dir / "design.dcp") + "\n")
+                fp.write("read_xdc " + str(design.constraints_path) + "\n")
+                fp.write("write_bitstream -force " + str(design.bitstream_path) + "\n")
+                fp.write("} ] } { exit 1 }\n")
+            fp.write("exit\n")
+        
+        with open(log_path, "w") as fp:
+            cmd = [str(VIVADO_BIN_PATH), "-mode", "tcl", "-source", str(tcl_path)]
+            proc = subprocess.Popen(
+                cmd,
+                cwd=self.work_dir,
+                stdout=subprocess.PIPE,
+                stderr=subprocess.STDOUT,
+                universal_newlines=True,
+            )
+            for line in proc.stdout:
+                sys.stdout.write(line)
+                sys.stdout.flush()
+                fp.write(line)
+                fp.flush()
+                if re.match("\s*ERROR:", line):
+                    proc.kill()
+            proc.communicate()
+            if proc.returncode:
+                return Status(ImplStatus.ERROR)
 
         return self.success_status
+
+    # def run_implementation_only_2(self, design, log_path):   
+            # tcl_path = self.work_dir / ("impl_2.tcl")
+            # design.bitstream_path = self.cwd / (design.top + ".bit")
+            # design.constraints_path = self.cwd / "constraints.xdc"
+            # report_io_path = str(design.netlist_path.parent) + "/yosys_synth/report_io.txt"
+            # extract_contraints(design, report_io_path) 
+            # with open(tcl_path, "w") as fp:
+            #     if not self.ooc:
+            #         fp.write("if { [ catch {\n")
+            #         fp.write("open_checkpoint -file " + str(self.work_dir / "design.dcp") + "\n")
+            #         fp.write("read_xdc " + str(design.constraints_path) + "\n")
+            #         fp.write("write_bitstream -force " + str(design.bitstream_path) + "\n")
+            #         fp.write("} ] } { exit 1 }\n")
+            #     fp.write("exit\n")
+            
+            # with open(log_path, "w") as fp:
+            #     cmd = [str(VIVADO_BIN_PATH), "-mode", "tcl", "-source", str(tcl_path)]
+            #     proc = subprocess.Popen(
+            #         cmd,
+            #         cwd=self.work_dir,
+            #         stdout=subprocess.PIPE,
+            #         stderr=subprocess.STDOUT,
+            #         universal_newlines=True,
+            #     )
+            #     for line in proc.stdout:
+            #         sys.stdout.write(line)
+            #         sys.stdout.flush()
+            #         fp.write(line)
+            #         fp.flush()
+            #         if re.match("\s*ERROR:", line):
+            #             proc.kill()
+            #     proc.communicate()
+            #     if proc.returncode:
+            #         return Status(ImplStatus.ERROR)
+
+            # return self.success_status
 
     def check_impl_status(self, log_path):
         text = open(log_path).read()

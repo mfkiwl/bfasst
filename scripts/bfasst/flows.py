@@ -59,6 +59,8 @@ class Flows(Enum):
     XILINX = "xilinx"
     YOSYS_ONLY = "yosys_only"
     YOSYS_SYNTH_VIVADO_IMPL = "yosys_synth_vivado_impl"
+    VIVADO_IMPL_FASM_BIT = "vivado_impl_fasm_bit"
+    FULL_FLOW = "full_flow"
 
 
 # This uses a lambda so that I don't have to define all of the functions before this point
@@ -80,6 +82,8 @@ flow_fcn_map = {
     Flows.XILINX: lambda: flow_xilinx,
     Flows.YOSYS_ONLY: lambda: flow_yosys_only,
     Flows.YOSYS_SYNTH_VIVADO_IMPL: lambda: flow_yosys_synth_vivado_impl,
+    Flows.VIVADO_IMPL_FASM_BIT: lambda: flow_vivado_impl_fasm_bit,
+    Flows.FULL_FLOW: lambda: flow_full_flow,
 }
 
 
@@ -156,7 +160,8 @@ def vivado_just_impl(design, build_dir, flow_args, ooc=False):
     '''Implement using Vivado'''
     log_path = "vivado_impl" + bfasst.config.IMPL_LOG_NAME
     impl_tool = Vivado_ImplementationTool(build_dir, flow_args, ooc)
-    return impl_tool.run_implementation_only(design, log_path)
+    return impl_tool.run_implementation_yosys(design, log_path)
+    # return impl_tool.run_implementation_only_2(design, log_path)
 
 
 def yosys_synth(design, build_dir, flow_args):
@@ -443,7 +448,7 @@ def flow_yosys_only(design, flow_args, build_dir):
     yosys_netlist_path = design.netlist_path
     # design.golden_sources.append(design.top_file_path)
     design.golden_sources = [design.top_file_path]
-    design.golden_sources.append(design.top_file_path)
+    # design.golden_sources.append(design.top_file_path)
     design.golden_is_verilog = True
 
     status = conformal_cmp(design, build_dir, flow_args[FlowArgs.CMP])
@@ -453,7 +458,7 @@ def flow_yosys_only(design, flow_args, build_dir):
 def flow_yosys_synth_vivado_impl(design, flow_args, build_dir):
     """Synthesize with yosys, implement with vivado"""
     # import bfasst
-    from bfasst import paths
+    # from bfasst import paths
 
     # print(paths.YOSYS_RESOURCES)
     
@@ -465,14 +470,15 @@ def flow_yosys_synth_vivado_impl(design, flow_args, build_dir):
     status = yosys_synth(design, build_dir, flow_args[FlowArgs.SYNTH])
     design.netlist_path = design.yosys_netlist_path
     print(type(design.yosys_netlist_path))
-    design.impl_netlist_path = str(build_dir) + "/" + design.top + "_vivado_impl.v"
+    # design.impl_netlist_path = str(build_dir) + "/" + design.top + "_vivado_impl.v"
+    design.impl_netlist_path = pathlib.Path(str(build_dir) + "/" + design.top + "_vivado_impl.v")
     # status = vivado_synth(design, build_dir, flow_args[FlowArgs.SYNTH])
     status = vivado_just_impl(design, build_dir, flow_args[FlowArgs.IMPL], True)                                                                                     
     # status = vivado_impl(design, build_dir, flow_args[FlowArgs.IMPL])
 
     # return design.yosys_netlist_path
     print(design.impl_netlist_path)
-    design.reversed_netlist_path = pathlib.Path(design.impl_netlist_path)
+    design.reversed_netlist_path = design.impl_netlist_path
     assert design.netlist_path is not None
     assert design.reversed_netlist_path is not None
 
@@ -486,6 +492,72 @@ def flow_yosys_synth_vivado_impl(design, flow_args, build_dir):
 
     return status
 
+def flow_vivado_impl_fasm_bit(design, flow_args, build_dir):
+    """Synthesize with yosys, implement with vivado, create bitstream with fasm2bit, reverse with fasm2bels"""
+    # import bfasst
+    # from bfasst import paths
+
+    # print(paths.YOSYS_RESOURCES)
+    
+    # Set the results file path so it can be used in the different tools
+    design.results_summary_path = build_dir / "results_summary.txt"
+    
+
+    # Run the Yosys synthesizer
+    status = yosys_synth(design, build_dir, flow_args[FlowArgs.SYNTH])
+    design.netlist_path = design.yosys_netlist_path
+
+    # Run Vivado Implementation
+    # design.impl_netlist_path = str(build_dir) + "/" + design.top + "_vivado_impl.v"
+    design.impl_netlist_path = pathlib.Path(str(build_dir) + "/" + design.top + "_vivado_impl.v")
+    status = vivado_just_impl(design, build_dir, flow_args[FlowArgs.IMPL])    
+
+    # Run fasm2bit to generate bitstream    
+    status = xray_rev(design, build_dir, flow_args)
+
+    # design.reversed_netlist_path = pathlib.Path(design.impl_netlist_path)
+    assert design.netlist_path is not None
+    assert design.reversed_netlist_path is not None
+
+    # yosys_netlist_path = design.netlist_path
+    # design.golden_sources.append(design.top_file_path)
+    design.golden_sources = [design.impl_netlist_path]
+    # design.golden_sources.append(design.top_file_path)
+    design.golden_is_verilog = True
+
+    status = conformal_cmp(design, build_dir, flow_args[FlowArgs.CMP])
+
+    return status
+
+def flow_full_flow(design, flow_args, build_dir):
+    # Set the results file path so it can be used in the different tools
+    design.results_summary_path = build_dir / "results_summary.txt"
+    
+
+    # Run the Yosys synthesizer
+    status = yosys_synth(design, build_dir, flow_args[FlowArgs.SYNTH])
+    design.netlist_path = design.yosys_netlist_path
+
+    # Run Vivado Implementation
+    design.impl_netlist_path = pathlib.Path(str(build_dir) + "/" + design.top + "_vivado_impl.v")
+    status = vivado_just_impl(design, build_dir, flow_args[FlowArgs.IMPL])    
+
+    # Run fasm2bit to generate bitstream    
+    status = xray_rev(design, build_dir, flow_args)
+
+    # design.reversed_netlist_path = pathlib.Path(design.impl_netlist_path)
+    assert design.netlist_path is not None
+    assert design.reversed_netlist_path is not None
+
+    # yosys_netlist_path = design.netlist_path
+    # design.golden_sources.append(design.top_file_path)
+    design.golden_sources = [design.top_file_path]
+    # design.golden_sources.append(design.top_file_path)
+    design.golden_is_verilog = True
+
+    status = conformal_cmp(design, build_dir, flow_args[FlowArgs.CMP])
+
+    return status
 
 def flow_yosys_tech_synplify_onespin(design, flow_args, build_dir):
     '''Synthesize with yosys, optimize and implement with icecube2
