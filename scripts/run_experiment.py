@@ -24,10 +24,6 @@ statuses = None
 running_list = None
 print_lock = None
 designs_list = []
-# flows_list = ["IC2_lse_conformal", "IC2_synplify_conformal", "synplify_IC2_icestorm_onespin", 
-#     "yosys_tech_lse_conformal", "yosys_tech_synplify_conformal", "yosys_tech_synplify_onespin", 
-#     "yosys_synplify_error_onespin", "xilinx_conformal", "xilinx_conformal_impl", "xilinx_yosys_impl", 
-#     "xilinx_yosys_waveform", "gather_impl_data", "conformal_only", "xilinx", "yosys_only", "yosys_synth_vivado_impl"]
 flows_list = ["yosys_only", "yosys_synth_vivado_impl", "vivado_impl_fasm_bit", "full_flow"]
 
 
@@ -72,41 +68,65 @@ def update_runtimes_thread(num_jobs):
 
 
 def chk_html(html_path):
-    # if os.path.getsize(os.path.abspath(html_path)) == 0:
+    '''This function checks to see if an html file exists.
+    If one does not exist one is made and filled with the 
+    base code.'''
+    
     if Path(html_path).resolve().is_file() == 0:
         tmp_html = open(html_path, "w")
-        tmp_html.write("<!DOCTYPE html>\n<html>\n<style>\ntable, th, td {\n\tborder:1px solid black;\n}\n</style>\n<body>\n\n<h2>BFASST Experiment Runs and Results</h2>\n")
+        tmp_html.write("<!DOCTYPE html>\n<html>\n<style>\ntable, th, td     \
+         {\n\tborder:1px solid black;\n}\n</style>\n<body>\n\n<h2>BFASST    \
+          Experiment Runs and Results</h2>\n")
         tmp_html.write("<table>\n<thead>\n\t<tr>\n\t\t<th>Design</th>")
         for flow in flows_list:
             tmp_html.write("\n\t\t<th>" + str(flow) + "</th>")
-        tmp_html.write("\n\t</tr>\n</thead>\n<tbody>\n</tbody>\n</table>\n\n<p>To run these designs yourself, check out the <a href=\"https://github.com/byuccl/bfasst\">BFASST Github repository</a>.</p>\n\n</body>\n</html>")
+        tmp_html.write("\n\t</tr>\n</thead>\n<tbody>\n</tbody>\n</table>    \
+        \n\n<p>To run these designs yourself, check out the <a href=\"htt   \
+        ps://github.com/byuccl/bfasst\">BFASST Github repository</a>.</p>\n\n</body>\n</html>")
         tmp_html.close()
 
 
 
 def write_html(htmlStr, idx_html_path):
-    # htmlStr = x.get_html_string()
+    '''This function reads the html for yeses and nos 
+    of each experiment run and changes the color
+    to green if yes and red if no.'''
+
     yes_str = "<td>Yes</td>"
     no_str = "<td>No</td>"
     yes_style = " style=\"background-color:darkseagreen;color:black;\""
     no_style = " style=\"background-color:lightcoral;color:black;\""
+
     while htmlStr.find(yes_str) != -1:
         index = htmlStr.find(yes_str)
         htmlStr = htmlStr[:index+3] + yes_style + htmlStr[index+3:]
+
     while htmlStr.find(no_str) != -1:
         index = htmlStr.find(no_str)
         htmlStr = htmlStr[:index+3] + no_style + htmlStr[index+3:]
 
 
     htmlFile = open(idx_html_path, "w")
-    htmlFile.write("<!DOCTYPE html>\n<html>\n<style>\ntable, th, td {\n\tborder:1px solid black;\n}\n</style>\n<body>\n\n<h2>BFASST Experiment Runs and Results</h2>\n")
+
+    htmlFile.write("<!DOCTYPE html>\n<html>\n<style>\ntable, th, td \
+    {\n\tborder:1px solid black;\n}\n</style>\n<body>\n\n<h2>BFASST \
+     Experiment Runs and Results</h2>\n")
+
     htmlFile.write("\n" + htmlStr)
-    htmlFile.write("\n\n<p>To run these designs yourself, check out the <a href=\"https://github.com/byuccl/bfasst\">BFASST Github repository</a>.</p>\n\n</body>\n</html>")
+
+    htmlFile.write("\n\n<p>To run these designs yourself, check out \
+     the <a href=\"https://github.com/byuccl/bfasst\">BFASST Github \
+      repository</a>.</p>\n\n</body>\n</html>")
+
     htmlFile.close()
 
 
 
 def html_update(equivalence, design, flow_fcn):
+    '''This function updates the html table. It converts
+    the experiments that output equivalent to table entries
+    of yes and not equivanlent experiments to tabke entries
+    of no.'''
 
     idx_html_path = "./index.html"
 
@@ -114,11 +134,8 @@ def html_update(equivalence, design, flow_fcn):
         table_value = "Yes"
     elif str(equivalence).find("Not equivalent") != -1:
         table_value = "No"
-    elif str(equivalence).find("!! Synth Error") != -1:
-        table_value = "!! Synth Error" 
     else:
         table_value =  str(equivalence)
-        # table_value = "ERROR"
 
     flow_name = flow_fcn.split()
     curr_flow = flow_name[1][5:]
@@ -155,6 +172,9 @@ def html_update(equivalence, design, flow_fcn):
 
 
 def list_maker(design_dict={}, go=False):
+    '''This function makes a list of each experiment
+    with the design being tested, the result of the experiment,
+    and the flow used.'''
 
     global designs_list
     idx_html_path = "./index.html"
@@ -172,9 +192,8 @@ def list_maker(design_dict={}, go=False):
                 line = file1.readline()
                 html_update(json_temp["status"], json_temp["design"], json_temp["flow_fcn"])
             file1.close()
-            # os.remove("temp.txt")
             pathlib.Path("./temp.txt").unlink()
-            print("index.html updated") # Do nothing
+            print("index.html updated") # Updated
         except:
             chk_html(idx_html_path)
             print("index.html unchanged") # Do nothing

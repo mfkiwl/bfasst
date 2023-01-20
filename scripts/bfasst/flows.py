@@ -428,27 +428,28 @@ def flow_yosys_tech_synplify_conformal(design, flow_args, build_dir):
 
 
 def flow_yosys_only(design, flow_args, build_dir):
-    """Synthesize with yosys"""
-    # import bfasst
-    # from bfasst import paths
-    # print(paths.YOSYS_RESOURCES)
-    
+    '''Synthesize with yosys and compare with conformal'''
+
     # Set the results file path so it can be used in the different tools
     design.results_summary_path = build_dir / "results_summary.txt"
-    
+
+    if design.top_file_path.name != design.top:
+        design.top_file_path = pathlib.PosixPath(str(design.top_file_path.parent) + "/" + str(design.top) + ".v")
 
     # Run the Yosys synthesizer
     status = yosys_synth(design, build_dir, flow_args[FlowArgs.SYNTH])
 
-    # return design.yosys_netlist_path
     design.reversed_netlist_path = design.yosys_netlist_path
     assert design.netlist_path is not None
     assert design.reversed_netlist_path is not None
 
-    yosys_netlist_path = design.netlist_path
-    # design.golden_sources.append(design.top_file_path)
-    design.golden_sources = [design.top_file_path]
-    # design.golden_sources.append(design.top_file_path)
+    temp_gold_files = design.get_golden_files()
+    gold_files = []
+    for files in temp_gold_files:
+        if files not in gold_files:
+            gold_files.append(files)
+
+    design.golden_sources = gold_files
     design.golden_is_verilog = True
 
     status = conformal_cmp(design, build_dir, flow_args[FlowArgs.CMP])
@@ -456,36 +457,34 @@ def flow_yosys_only(design, flow_args, build_dir):
     return status
 
 def flow_yosys_synth_vivado_impl(design, flow_args, build_dir):
-    """Synthesize with yosys, implement with vivado"""
-    # import bfasst
-    # from bfasst import paths
+    '''Synthesize with yosys, implement with vivado, and
+    compare with conformal'''
 
-    # print(paths.YOSYS_RESOURCES)
-    
     # Set the results file path so it can be used in the different tools
     design.results_summary_path = build_dir / "results_summary.txt"
-    
+
+    if design.top_file_path.name != design.top:
+        design.top_file_path = pathlib.PosixPath(str(design.top_file_path.parent) + "/" + str(design.top) + ".v")
 
     # Run the Yosys synthesizer
     status = yosys_synth(design, build_dir, flow_args[FlowArgs.SYNTH])
     design.netlist_path = design.yosys_netlist_path
-    print(type(design.yosys_netlist_path))
-    # design.impl_netlist_path = str(build_dir) + "/" + design.top + "_vivado_impl.v"
-    design.impl_netlist_path = pathlib.Path(str(build_dir) + "/" + design.top + "_vivado_impl.v")
-    # status = vivado_synth(design, build_dir, flow_args[FlowArgs.SYNTH])
-    status = vivado_just_impl(design, build_dir, flow_args[FlowArgs.IMPL], True)                                                                                     
-    # status = vivado_impl(design, build_dir, flow_args[FlowArgs.IMPL])
 
-    # return design.yosys_netlist_path
-    print(design.impl_netlist_path)
+    # Implement with Vivado
+    design.impl_netlist_path = pathlib.Path(str(build_dir) + "/" + design.top + "_vivado_impl.v")
+    status = vivado_just_impl(design, build_dir, flow_args[FlowArgs.IMPL], True)
+
     design.reversed_netlist_path = design.impl_netlist_path
     assert design.netlist_path is not None
     assert design.reversed_netlist_path is not None
 
-    # yosys_netlist_path = design.netlist_path
-    # design.golden_sources.append(design.top_file_path)
+    temp_gold_files = design.get_golden_files()
+    gold_files = []
+    for files in temp_gold_files:
+        if files not in gold_files:
+            gold_files.append(files)
+
     design.golden_sources = [design.yosys_netlist_path]
-    # design.golden_sources.append(design.top_file_path)
     design.golden_is_verilog = True
 
     status = conformal_cmp(design, build_dir, flow_args[FlowArgs.CMP])
@@ -493,36 +492,37 @@ def flow_yosys_synth_vivado_impl(design, flow_args, build_dir):
     return status
 
 def flow_vivado_impl_fasm_bit(design, flow_args, build_dir):
-    """Synthesize with yosys, implement with vivado, create bitstream with fasm2bit, reverse with fasm2bels"""
-    # import bfasst
-    # from bfasst import paths
-
-    # print(paths.YOSYS_RESOURCES)
+    '''Synthesize with yosys, implement with vivado, 
+    create bitstream with fasm2bit, reverse with fasm2bels, 
+    and compare with conformal'''
     
     # Set the results file path so it can be used in the different tools
     design.results_summary_path = build_dir / "results_summary.txt"
-    
+
+    if design.top_file_path.name != design.top:
+        design.top_file_path = pathlib.PosixPath(str(design.top_file_path.parent) + "/" + str(design.top) + ".v")
 
     # Run the Yosys synthesizer
     status = yosys_synth(design, build_dir, flow_args[FlowArgs.SYNTH])
     design.netlist_path = design.yosys_netlist_path
 
     # Run Vivado Implementation
-    # design.impl_netlist_path = str(build_dir) + "/" + design.top + "_vivado_impl.v"
     design.impl_netlist_path = pathlib.Path(str(build_dir) + "/" + design.top + "_vivado_impl.v")
     status = vivado_just_impl(design, build_dir, flow_args[FlowArgs.IMPL])    
 
     # Run fasm2bit to generate bitstream    
     status = xray_rev(design, build_dir, flow_args)
 
-    # design.reversed_netlist_path = pathlib.Path(design.impl_netlist_path)
     assert design.netlist_path is not None
     assert design.reversed_netlist_path is not None
 
-    # yosys_netlist_path = design.netlist_path
-    # design.golden_sources.append(design.top_file_path)
+    temp_gold_files = design.get_golden_files()
+    gold_files = []
+    for files in temp_gold_files:
+        if files not in gold_files:
+            gold_files.append(files)
+
     design.golden_sources = [design.impl_netlist_path]
-    # design.golden_sources.append(design.top_file_path)
     design.golden_is_verilog = True
 
     status = conformal_cmp(design, build_dir, flow_args[FlowArgs.CMP])
@@ -530,9 +530,14 @@ def flow_vivado_impl_fasm_bit(design, flow_args, build_dir):
     return status
 
 def flow_full_flow(design, flow_args, build_dir):
+    '''Sythesize with yosys, implement with vivado, 
+    reverse with xray, and compare with conformal'''
+
     # Set the results file path so it can be used in the different tools
     design.results_summary_path = build_dir / "results_summary.txt"
-    
+
+    if design.top_file_path.name != design.top:
+        design.top_file_path = pathlib.PosixPath(str(design.top_file_path.parent) + "/" + str(design.top) + ".v")
 
     # Run the Yosys synthesizer
     status = yosys_synth(design, build_dir, flow_args[FlowArgs.SYNTH])
@@ -545,14 +550,16 @@ def flow_full_flow(design, flow_args, build_dir):
     # Run fasm2bit to generate bitstream    
     status = xray_rev(design, build_dir, flow_args)
 
-    # design.reversed_netlist_path = pathlib.Path(design.impl_netlist_path)
     assert design.netlist_path is not None
     assert design.reversed_netlist_path is not None
 
-    # yosys_netlist_path = design.netlist_path
-    # design.golden_sources.append(design.top_file_path)
+    temp_gold_files = design.get_golden_files()
+    gold_files = []
+    for files in temp_gold_files:
+        if files not in gold_files:
+            gold_files.append(files)
+
     design.golden_sources = [design.top_file_path]
-    # design.golden_sources.append(design.top_file_path)
     design.golden_is_verilog = True
 
     status = conformal_cmp(design, build_dir, flow_args[FlowArgs.CMP])

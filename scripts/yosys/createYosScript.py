@@ -2,6 +2,7 @@
 import sys
 import getopt
 import os
+import pathlib
 
 usage_str = 'createPrjFile.py -s <source files> -o <yos file> -i <input yos file> -v <output netlist name>\n\
 Multiple source files must be enclosed in quotes \n\
@@ -56,19 +57,25 @@ def main():
         for line in prj_file:
             print_or_write(of, line)
             if line.strip() == "# Read verilog input files":
-                for src in srcs:
-                    if src[-4:] == ".vhd":
-                        # Yosys doesn't natively support VHDL.
-                        # print("Ignoring VHDL file", src, " -- VHDL not supported")
-                        print_or_write(of, "read_vhdl " + src + "\n")
-                    elif src[-2:] == ".v" or src[-3:] == ".vh":
-                        print_or_write(of, "read_verilog " + src + "\n")
-                    else:
-                        print("Unrecognized file type", src)
+                done = []
+                for src in reversed(range(len(srcs))):
+                    if str(pathlib.Path(srcs[0]).stem) + ".v" in srcs[src]:
+                        continue
+                    if srcs[src] not in done:
+                        done.append(srcs[src])
+                        if srcs[src][-4:] == ".vhd":
+                            # Yosys doesn't natively support VHDL.
+                            print("Ignoring VHDL file", srcs[src], " -- VHDL not supported")
+                            # print_or_write(of, "read_vhdl " + src + "\n")
+                            # print_or_write(of, "verific -vhdl " + src + "\n")
+                        elif srcs[src][-2:] == ".v" or srcs[src][-3:] == ".vh":
+                            print_or_write(of, "read_verilog " + srcs[src] + "\n")
+                        else:
+                            print("Unrecognized file type", srcs[src])
+                print_or_write(of, "read_verilog " + srcs[src] + "\n")
             if line.strip() == "# Run xilinx synthesis passes":
                 # print_or_write(of, "synth_xilinx -edif " + "yosys.edif" + "\n")
-                import pathlib
-                print_or_write(of, "synth_xilinx -edif " + pathlib.Path(src).stem + ".edf" + " -top " + pathlib.Path(src).stem + "\n")
+                print_or_write(of, "synth_xilinx -edif " + pathlib.Path(srcs[src]).stem + ".edf" + " -top " + pathlib.Path(srcs[src]).stem + "\n")
             if line.strip() == "# Now write the verilog output":
                 print_or_write(of, "write_verilog " + out_netlist + "\n")
     print_or_write(of, "\n")

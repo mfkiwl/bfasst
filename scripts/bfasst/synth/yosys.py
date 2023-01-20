@@ -25,6 +25,12 @@ class Yosys_Tech_SynthTool(SynthesisTool):
         self.vendor = vendor
 
     def create_netlist(self, design):
+
+        temp_gold_files = design.get_golden_files()
+        for files in temp_gold_files:
+            if files.suffix == ".vhd":
+                return Status(SynthStatus.VHDL)
+
         # Target netlist output
         design.netlist_path = self.cwd / (design.top + "_yosys_tech.v")
 
