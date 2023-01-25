@@ -28,7 +28,7 @@ class Yosys_Tech_SynthTool(SynthesisTool):
 
         temp_gold_files = design.get_golden_files()
         for files in temp_gold_files:
-            if files.suffix == ".vhd":
+            if files.suffix == ".vhd" or files.suffix == ".vhdl":
                 return Status(SynthStatus.VHDL)
 
         # Target netlist output

@@ -52,7 +52,7 @@ msg_map = {
     SynthStatus.SUCCESS: "Synth Success",
     SynthStatus.ERROR: "!! Synth Error",
     SynthStatus.TIMEOUT: "Synth Timeout",
-    SynthStatus.VHDL: "VHDL files included. Test aborted.",
+    SynthStatus.VHDL: "VHDL Files",
     OptStatus.SUCCESS: "Opt Success",
     OptStatus.ERROR: "!! Opt Error",
     OptStatus.TIMEOUT: "Opt Timeout",
