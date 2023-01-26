@@ -63,7 +63,8 @@ class Vivado_ImplementationTool(ImplementationTool):
         self.print_running_impl()
 
         # Run implementation
-        status = self.run_implementation(design, log_path)
+        # status = self.run_implementation(design, log_path)
+        self.run_implementation(design, log_path)
 
         # Check implementation log
         status = self.check_impl_status(log_path)
