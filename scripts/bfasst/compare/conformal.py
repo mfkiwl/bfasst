@@ -1,26 +1,25 @@
-import bfasst
-from bfasst.design import HdlType
-from bfasst.tool import ToolProduct
-from bfasst.status import Status, CompareStatus
-from bfasst import netlist_mapping
-import paramiko
-import scp
+''' This file contains conformal comparsion tools'''
+
 import re
 import socket
 import pathlib
-
-# Suppress paramiko warning
-import warnings
-
-warnings.filterwarnings(action="ignore", module=".*paramiko.*")
-
+import warnings # Suppress paramiko warning
+import paramiko
+import scp
+import bfasst
 from bfasst.compare.base import CompareTool
+from bfasst.design import HdlType
+from bfasst.tool import ToolProduct
 from bfasst.status import BfasstException, Status, CompareStatus
 from bfasst import flows, paths
 from bfasst.utils import error
 
+warnings.filterwarnings(action="ignore", module=".*paramiko.*")
 
-class Conformal_CompareTool(CompareTool):
+class ConformalCompareTool(CompareTool):
+    ''' This class is used for the conformal
+    compare tools.'''
+
     TOOL_WORK_DIR = "conformal"
     LOG_FILE_NAME = "log.txt"
     DO_FILE_NAME = "compare.do"
@@ -30,8 +29,11 @@ class Conformal_CompareTool(CompareTool):
     def __init__(self, cwd, vendor):
         super().__init__(cwd)
 
-        assert type(vendor) is flows.Vendor
+        # assert type(vendor) is flows.Vendor
+        assert isinstance(vendor, flows.Vendor)
         self.vendor = vendor
+        self.remote_libs_dir_path = None
+        self.local_libs_paths = None
 
     def compare_netlists(self, design):
         log_path = self.work_dir / self.LOG_FILE_NAME
@@ -95,9 +97,9 @@ class Conformal_CompareTool(CompareTool):
         )
 
         print(cmd)
-        (stdin, stdout, stderr) = client.exec_command(
-            cmd, timeout=bfasst.config.CONFORMAL_TIMEOUT
-        )
+        # (stdin, stdout, stderr) = client.exec_command(
+        #     cmd, timeout=bfasst.config.CONFORMAL_TIMEOUT
+        # )
 
         # Copy files to remote machine
         self.copy_files_to_remote_machine(
@@ -110,8 +112,7 @@ class Conformal_CompareTool(CompareTool):
         except BfasstException as e:
             if e.error != CompareStatus.TIMEOUT:
                 raise e
-            else:
-                status = e
+            status = e
 
         # Copy back conformal log file
         self.copy_log_from_remote_machine(client)
@@ -127,6 +128,9 @@ class Conformal_CompareTool(CompareTool):
         return self.success_status
 
     def connect_to_remote_machine(self):
+        '''This connects to the caedm machines
+         so we can use conformal'''
+
         client = paramiko.SSHClient()
         client.set_missing_host_key_policy(paramiko.AutoAddPolicy())
         client.connect(
@@ -136,6 +140,11 @@ class Conformal_CompareTool(CompareTool):
         return client
 
     def run_conformal(self, client):
+        '''Runs the conformal script.
+        Uses the Do file created.
+        Creates a log file. Runs without
+        the GUI.'''
+
         cmd = (
             "source "
             + str(bfasst.config.CONFORMAL_REMOTE_SOURCE_SCRIPT)
@@ -159,7 +168,7 @@ class Conformal_CompareTool(CompareTool):
         stdin.write("yes\n")
 
         try:
-            s = stdout.read()
+            # s = stdout.read()
             stdout.channel.recv_exit_status()
         except socket.timeout:
             return Status(CompareStatus.TIMEOUT)
@@ -171,6 +180,9 @@ class Conformal_CompareTool(CompareTool):
         return Status(CompareStatus.SUCCESS)
 
     def create_do_file(self, design):
+        '''Creates the Do file used in the
+        Conformal comparison that will be made.'''
+
         do_file_path = self.work_dir / self.DO_FILE_NAME
 
         with open(do_file_path, "w") as fp:
@@ -196,14 +208,19 @@ class Conformal_CompareTool(CompareTool):
                 + " ".join([golden.name for golden in design.get_golden_files()])
                 + " "
                 + src_type
-                + " -Golden -sensitive -continuousassignment Bidirectional -nokeep_unreach -nosupply\n"
+                + " -Golden -sensitive -continuousassignment \
+                    Bidirectional -nokeep_unreach -nosupply\n"
             )
-            # fp.write("read design " + design.top_file + " " + " ".join(design.get_support_files()) + " " + src_type + " -Golden -sensitive -continuousassignment Bidirectional -nokeep_unreach -nosupply\n")
+            # fp.write("read design " + design.top_file + " " \
+            # + " ".join(design.get_support_files()) + " " + \
+            # src_type + " -Golden -sensitive -continuousassignment \
+            # Bidirectional -nokeep_unreach -nosupply\n")
 
             fp.write(
                 "read design "
                 + design.reversed_netlist_path.name
-                + " -Verilog -Revised -sensitive -continuousassignment Bidirectional -nokeep_unreach -nosupply\n"
+                + " -Verilog -Revised -sensitive -continuousassignment \
+                Bidirectional -nokeep_unreach -nosupply\n"
             )
             fp.write(
                 r"add renaming rule vector_expand %s\[%d\] @1_@2 -Both -map" + "\n"
@@ -225,7 +242,8 @@ class Conformal_CompareTool(CompareTool):
         run_gui_path = self.work_dir / self.GUI_FILE_NAME
         with open(run_gui_path, "w") as fp:
             fp.write(
-                "source " + str(bfasst.config.CONFORMAL_REMOTE_SOURCE_SCRIPT) + ";\n"
+                "source " + str(bfasst.config.CONFORMAL_REMOTE_SOURCE_SCRIPT) \
+                     + ";\n"
             )
             fp.write(
                 str(bfasst.config.CONFORMAL_REMOTE_PATH)
@@ -239,21 +257,25 @@ class Conformal_CompareTool(CompareTool):
     def copy_files_to_remote_machine(
         self, client, design, do_file_path
     ):
-        scpClient = scp.SCPClient(client.get_transport())
+        '''Copies the files that will be used
+        to the remote computers that have conformal
+        licenses.'''
+
+        scp_client = scp.SCPClient(client.get_transport())
 
         # Copy library files
         for f in self.local_libs_paths:
-            scpClient.put(str(f), str(self.remote_libs_dir_path / f.name))
+            scp_client.put(str(f), str(self.remote_libs_dir_path / f.name))
 
         # Copy do script
-        scpClient.put(
+        scp_client.put(
             str(do_file_path),
             str(bfasst.config.CONFORMAL_REMOTE_WORK_DIR / self.DO_FILE_NAME),
         )
 
         # Copy gui script
         run_gui_path = self.work_dir / self.GUI_FILE_NAME
-        scpClient.put(
+        scp_client.put(
             str(run_gui_path),
             str(bfasst.config.CONFORMAL_REMOTE_WORK_DIR / self.GUI_FILE_NAME),
         )
@@ -261,44 +283,56 @@ class Conformal_CompareTool(CompareTool):
         # Copy mapped points
         # scpClient.put(
         #     str(mapped_points_file_path),
-        #     str(bfasst.config.CONFORMAL_REMOTE_WORK_DIR / self.MAPPED_POINTS_FILE_NAME),
+        #     str(bfasst.config.CONFORMAL_REMOTE_WORK_DIR \
+        # / self.MAPPED_POINTS_FILE_NAME),
         # )
 
         # Copy top
-        # scpClient.put(str(design.top_path()), str(bfasst.config.CONFORMAL_REMOTE_WORK_DIR))
+        # scpClient.put(str(design.top_path()), \
+        # str(bfasst.config.CONFORMAL_REMOTE_WORK_DIR))
 
         # Copy all support files
         # Todo
         # for verilog_file in design.verilog_files:
-        #    scpClient.put(str(design.full_path / verilog_file), str(bfasst.config.CONFORMAL_REMOTE_WORK_DIR))
+        #    scpClient.put(str(design.full_path / verilog_file), \
+        #  str(bfasst.config.CONFORMAL_REMOTE_WORK_DIR))
         # for vhdl_file in design.vhdl_files:
-        #    scpClient.put(str(design.full_path / vhdl_file), str(bfasst.config.CONFORMAL_REMOTE_WORK_DIR))
+        #    scpClient.put(str(design.full_path / vhdl_file), \
+        #  str(bfasst.config.CONFORMAL_REMOTE_WORK_DIR))
 
         for design_file in design.get_golden_files():
-            scpClient.put(
+            scp_client.put(
                 str(design_file), str(bfasst.config.CONFORMAL_REMOTE_WORK_DIR)
             )
 
-        # @$(foreach var, $(VERILOG_SUPPORT_FILES),scp $(DESIGN_DIR)/$(var) caedm:$(CONFORMAL_WORK_DIR)/ >> $@;)
-        # @$(foreach var, $(VHDL_SUPPORT_FILES),scp $(DESIGN_DIR)/$(var) caedm:$(CONFORMAL_WORK_DIR)/ >> $@;)
+        # @$(foreach var, $(VERILOG_SUPPORT_FILES),scp \
+        # $(DESIGN_DIR)/$(var) caedm:$(CONFORMAL_WORK_DIR)/ >> $@;)
+        # @$(foreach var, $(VHDL_SUPPORT_FILES),scp \
+        # $(DESIGN_DIR)/$(var) caedm:$(CONFORMAL_WORK_DIR)/ >> $@;)
 
         # Copy reverse netlist file
-        scpClient.put(
+        scp_client.put(
             str(design.reversed_netlist_path),
             str(bfasst.config.CONFORMAL_REMOTE_WORK_DIR),
         )
 
-        scpClient.close()
+        scp_client.close()
 
     def copy_log_from_remote_machine(self, client):
-        scpClient = scp.SCPClient(client.get_transport())
-        scpClient.get(
+        '''Copies the log file from the conformal
+        comparison back to the user machine'''
+
+        scp_client = scp.SCPClient(client.get_transport())
+        scp_client.get(
             str(bfasst.config.CONFORMAL_REMOTE_WORK_DIR / self.LOG_FILE_NAME),
             str(self.work_dir),
         )
-        scpClient.close()
+        scp_client.close()
 
     def check_compare_status(self, log_path):
+        '''Checks the status of the comparison
+        and returns a compare status.'''
+
         log_text = open(log_path).read()
 
         # Check for timeout
@@ -306,10 +340,9 @@ class Conformal_CompareTool(CompareTool):
             return Status(CompareStatus.TIMEOUT)
 
         # Regex search for result
-        m = re.search(r"^6\. Compare Results:\s+(.*)$", log_text, re.M)
-        if not m:
+        regex_search = re.search(r"^6\. Compare Results:\s+(.*)$", log_text, re.M)
+        if not regex_search:
             return Status(CompareStatus.PARSE_PROBLEM)
-        if m.group(1) == "PASS":
+        if regex_search.group(1) == "PASS":
             return Status(CompareStatus.SUCCESS)
-        else:
-            return Status(CompareStatus.NOT_EQUIVALENT, m.group(1))
+        return Status(CompareStatus.NOT_EQUIVALENT, regex_search.group(1))

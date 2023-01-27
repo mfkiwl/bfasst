@@ -23,7 +23,7 @@ from bfasst.impl.ic2 import IC2_ImplementationTool
 from bfasst.impl.vivado import Vivado_ImplementationTool
 from bfasst.reverse_bit.xray import XRay_ReverseBitTool
 from bfasst.reverse_bit.icestorm import Icestorm_ReverseBitTool
-from bfasst.compare.conformal import Conformal_CompareTool
+from bfasst.compare.conformal import ConformalCompareTool
 from bfasst.compare.yosys import Yosys_CompareTool
 from bfasst.compare.waveform import WaveformCompareTool
 from bfasst.compare.onespin import OneSpin_CompareTool
@@ -143,7 +143,7 @@ def icestorm_rev_bit(design, build_dir, flow_args):
 def conformal_cmp(design, build_dir, flow_args):
     """Compare netlists using Conformal"""
     vendor = Vendor.XILINX if not flow_args else Vendor[flow_args.upper()]
-    compare_tool = Conformal_CompareTool(build_dir, vendor)
+    compare_tool = ConformalCompareTool(build_dir, vendor)
     with bfasst.conformal_lock:
         return compare_tool.compare_netlists(design)
 
@@ -281,9 +281,9 @@ def flow_xilinx_conformal_impl(design, flow_args, build_dir):
         design.impl_netlist_path,
     ]
 
-    # TODO Conformal_CompareTool.compare_netlists does not take a mapping arg
+    # TODO ConformalCompareTool.compare_netlists does not take a mapping arg
 
-    # compare_tool = bfasst.compare.conformal.Conformal_CompareTool(
+    # compare_tool = bfasst.compare.conformal.ConformalCompareTool(
     #    build_dir, Vendor.XILINX
     # )
     # with bfasst.conformal_lock:

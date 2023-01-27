@@ -63,8 +63,7 @@ class Vivado_ImplementationTool(ImplementationTool):
         self.print_running_impl()
 
         # Run implementation
-        # status = self.run_implementation(design, log_path)
-        self.run_implementation(design, log_path)
+        status = self.run_implementation(design, log_path)
 
         # Check implementation log
         status = self.check_impl_status(log_path)
@@ -105,6 +104,26 @@ class Vivado_ImplementationTool(ImplementationTool):
             # fp.write("write_edif -force {" + str(design.netlist_path) + "}\n")
             fp.write("} ] } { exit 1 }\n")
             fp.write("exit\n")
+        
+        with open(log_path, "w") as fp:
+            cmd = [str(VIVADO_BIN_PATH), "-mode", "tcl", "-source", str(tcl_path)]
+            proc = subprocess.Popen(
+                cmd,
+                cwd=self.work_dir,
+                stdout=subprocess.PIPE,
+                stderr=subprocess.STDOUT,
+                universal_newlines=True,
+            )
+            for line in proc.stdout:
+                sys.stdout.write(line)
+                sys.stdout.flush()
+                fp.write(line)
+                fp.flush()
+                if re.match("\s*ERROR:", line):
+                    proc.kill()
+            proc.communicate()
+            if proc.returncode:
+                return Status(ImplStatus.ERROR)
     
     def run_implementation_yosys(self, design, log_path):
         tcl_path = self.work_dir / ("impl.tcl")
@@ -245,8 +264,8 @@ class Vivado_ImplementationTool(ImplementationTool):
         m = re.search(r"^ERROR:\s*(.*?)$", text, re.M)
         if m:
             return Status(ImplStatus.ERROR, m.group(1).strip())
-
-        return self.success_status
+        else:
+            return self.success_status
 
         m = re.search(
             r"^Design LUT Count \((\d+)\) exceeded Device LUT Count \((\d+)\)$", text, re.M
