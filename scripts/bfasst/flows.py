@@ -452,8 +452,8 @@ def flow_yosys_only(design, flow_args, build_dir):
     assert design.netlist_path is not None
     assert design.reversed_netlist_path is not None
 
-    temp_gold_files = design.get_golden_files()
-    gold_files = []
+    #temp_gold_files = design.get_golden_files()
+    gold_files = [] # pylint says yosys_netlist_path is never used
     for files in temp_gold_files:
         if files not in gold_files:
             gold_files.append(files)
@@ -468,6 +468,8 @@ def flow_yosys_only(design, flow_args, build_dir):
 def flow_yosys_synth_vivado_impl(design, flow_args, build_dir):
     '''Synthesize with yosys, implement with vivado, and
     compare with conformal'''
+
+    # print(paths.YOSYS_RESOURCES)
 
     # Set the results file path so it can be used in the different tools
     design.results_summary_path = build_dir / "results_summary.txt"
@@ -501,10 +503,15 @@ def flow_yosys_synth_vivado_impl(design, flow_args, build_dir):
     return status
 
 def flow_vivado_impl_fasm_bit(design, flow_args, build_dir):
-    '''Synthesize with yosys, implement with vivado, 
-    create bitstream with fasm2bit, reverse with fasm2bels, 
-    and compare with conformal'''
-    
+    """Synthesize with Yosys,
+    implement with Vivado,
+    create bitstream with fasm2bit,
+    reverse with fasm2bels"""
+    # import bfasst
+    # from bfasst import paths
+
+    # print(paths.YOSYS_RESOURCES)
+
     # Set the results file path so it can be used in the different tools
     design.results_summary_path = build_dir / "results_summary.txt"
 
@@ -517,9 +524,9 @@ def flow_vivado_impl_fasm_bit(design, flow_args, build_dir):
 
     # Run Vivado Implementation
     design.impl_netlist_path = pathlib.Path(str(build_dir) + "/" + design.top + "_vivado_impl.v")
-    status = vivado_just_impl(design, build_dir, flow_args[FlowArgs.IMPL])    
+    status = vivado_just_impl(design, build_dir, flow_args[FlowArgs.IMPL])
 
-    # Run fasm2bit to generate bitstream    
+    # Run fasm2bit to generate bitstream
     status = xray_rev(design, build_dir, flow_args)
 
     assert design.netlist_path is not None
@@ -539,14 +546,13 @@ def flow_vivado_impl_fasm_bit(design, flow_args, build_dir):
     return status
 
 def flow_full_flow(design, flow_args, build_dir):
-    '''Sythesize with yosys, implement with vivado, 
-    reverse with xray, and compare with conformal'''
-
+    """Synthesize with Yosys,
+    implement with Vivado,
+    create bitstream with fasm2bit,
+    reverse with fasm2bels"""
     # Set the results file path so it can be used in the different tools
     design.results_summary_path = build_dir / "results_summary.txt"
 
-    if design.top_file_path.name != design.top:
-        design.top_file_path = pathlib.PosixPath(str(design.top_file_path.parent) + "/" + str(design.top) + ".v")
 
     # Run the Yosys synthesizer
     status = yosys_synth(design, build_dir, flow_args[FlowArgs.SYNTH])
@@ -554,9 +560,9 @@ def flow_full_flow(design, flow_args, build_dir):
 
     # Run Vivado Implementation
     design.impl_netlist_path = pathlib.Path(str(build_dir) + "/" + design.top + "_vivado_impl.v")
-    status = vivado_just_impl(design, build_dir, flow_args[FlowArgs.IMPL])    
+    status = vivado_just_impl(design, build_dir, flow_args[FlowArgs.IMPL])
 
-    # Run fasm2bit to generate bitstream    
+    # Run fasm2bit to generate bitstream
     status = xray_rev(design, build_dir, flow_args)
 
     assert design.netlist_path is not None
