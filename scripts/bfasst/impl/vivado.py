@@ -1,3 +1,5 @@
+''' This file contains Vivado implementation tools'''
+
 import subprocess
 import re
 import os
@@ -32,7 +34,8 @@ def extract_contraints(design, report_io_path):
         write_xdc(design.mapped_io, fp)
 
 
-class Vivado_ImplementationTool(ImplementationTool):
+class VivadoImplementationTool(ImplementationTool):
+    ''' This class is used for Vivado implementation tools'''
     TOOL_WORK_DIR = "vivado_impl"
 
 
@@ -63,7 +66,7 @@ class Vivado_ImplementationTool(ImplementationTool):
         self.print_running_impl()
 
         # Run implementation
-        status = self.run_implementation(design, log_path)
+        status = self.run_implementation(design)
 
         # Check implementation log
         status = self.check_impl_status(log_path)
@@ -73,7 +76,8 @@ class Vivado_ImplementationTool(ImplementationTool):
 
         return self.success_status
 
-    def run_implementation(self, design, log_path):
+    def run_implementation(self, design): # pylint says log_path is not used
+        ''' This function runs the implementation'''
         tcl_path = self.work_dir / ("impl.tcl")
 
         with open(tcl_path, "w") as fp:
@@ -97,14 +101,15 @@ class Vivado_ImplementationTool(ImplementationTool):
             fp.write("place_design\n")
             fp.write("route_design\n")
             fp.write("write_checkpoint -force -file " + str(self.work_dir / "design.dcp") + "\n")
-            # fp.write("write_edif -force -file " + str(design.impl_netlist_path.with_suffix(".edf")) + "\n")
+            # fp.write("write_edif -force -file " + str(design.impl_netlist_path.with_suffix
+            #(".edf")) + "\n")
             fp.write("write_verilog -force -file " + str(design.impl_netlist_path) + "\n")
             if not self.ooc:
                 fp.write("write_bitstream -force " + str(design.bitstream_path) + "\n")
             # fp.write("write_edif -force {" + str(design.netlist_path) + "}\n")
             fp.write("} ] } { exit 1 }\n")
             fp.write("exit\n")
-        
+    
         with open(log_path, "w") as fp:
             cmd = [str(VIVADO_BIN_PATH), "-mode", "tcl", "-source", str(tcl_path)]
             proc = subprocess.Popen(
@@ -126,6 +131,7 @@ class Vivado_ImplementationTool(ImplementationTool):
                 return Status(ImplStatus.ERROR)
     
     def run_implementation_yosys(self, design, log_path):
+        ''' This function runs the implementation for Yosys '''
         tcl_path = self.work_dir / ("impl.tcl")
         design.bitstream_path = self.cwd / (design.top + ".bit")
         design.constraints_path = self.cwd / "constraints.xdc"
@@ -134,9 +140,12 @@ class Vivado_ImplementationTool(ImplementationTool):
         with open(tcl_path, "w") as fp:
             # fp.write("set_part " + bfasst.config.PART + "\n")
             fp.write("if { [ catch {\n")
-            # fp.write("read_edif " + str(design.netlist_path.parent) + "/yosys_synth/yosys.edf" + "\n")
-            # fp.write("read_edif " + str(design.netlist_path.parent) + "/yosys_synth/" + pathlib.Path(edif_path).stem + ".edf" + "\n")
-            fp.write("read_edif " + str(design.netlist_path.parent) + "/yosys_synth/" + design.top + ".edf" + "\n")
+            # fp.write("read_edif " + str(design.netlist_path.parent) +
+            #"/yosys_synth/yosys.edf" + "\n")
+            # fp.write("read_edif " + str(design.netlist_path.parent) +
+            #"/yosys_synth/" + pathlib.Path(edif_path).stem + ".edf" + "\n")
+            fp.write("read_edif " + str(design.netlist_path.parent) +
+            "/yosys_synth/" + design.top + ".edf" + "\n")
 
             # for vf in design.verilog_files:
             #     fp.write("read_verilog " + str(design.))
@@ -154,9 +163,12 @@ class Vivado_ImplementationTool(ImplementationTool):
             fp.write("opt_design\n")
             fp.write("place_design\n")
             fp.write("route_design\n")
-            fp.write("write_checkpoint -force -file " + str(self.work_dir / "design.dcp") + "\n")
-            # fp.write("write_edif -force -file " + str(design.impl_netlist_path.with_suffix(".edf")) + "\n")
-            # fp.write("write_edif -force -file " + str(design.impl_netlist_path)[:-2] + ".edif" + "\n")
+            fp.write("write_checkpoint -force -file " +
+            str(self.work_dir / "design.dcp") + "\n")
+            # fp.write("write_edif -force -file " +
+            # str(design.impl_netlist_path.with_suffix(".edf")) + "\n")
+            # fp.write("write_edif -force -file " +
+            # str(design.impl_netlist_path)[:-2] + ".edif" + "\n")
             fp.write("write_verilog -force -file " + str(design.impl_netlist_path) + "\n")
             # report_io_path = str(design.netlist_path.parent) + "/yosys_synth/report_io.txt"
             fp.write("report_io -force -file " + report_io_path + "\n")
@@ -182,13 +194,13 @@ class Vivado_ImplementationTool(ImplementationTool):
                 sys.stdout.flush()
                 fp.write(line)
                 fp.flush()
-                if re.match("\s*ERROR:", line):
+                if re.match("\\s*ERROR:", line):
                     proc.kill()
             proc.communicate()
             if proc.returncode:
                 return Status(ImplStatus.ERROR)
-        
-        extract_contraints(design, report_io_path) 
+
+        extract_contraints(design, report_io_path)
         tcl_path = self.work_dir / ("impl_2.tcl")
         with open(tcl_path, "w") as fp:
             if not self.ooc:
@@ -198,7 +210,7 @@ class Vivado_ImplementationTool(ImplementationTool):
                 fp.write("write_bitstream -force " + str(design.bitstream_path) + "\n")
                 fp.write("} ] } { exit 1 }\n")
             fp.write("exit\n")
-        
+
         with open(log_path, "w") as fp:
             cmd = [str(VIVADO_BIN_PATH), "-mode", "tcl", "-source", str(tcl_path)]
             proc = subprocess.Popen(
@@ -213,7 +225,7 @@ class Vivado_ImplementationTool(ImplementationTool):
                 sys.stdout.flush()
                 fp.write(line)
                 fp.flush()
-                if re.match("\s*ERROR:", line):
+                if re.match("\\s*ERROR:", line):
                     proc.kill()
             proc.communicate()
             if proc.returncode:
@@ -221,12 +233,12 @@ class Vivado_ImplementationTool(ImplementationTool):
 
         return self.success_status
 
-    # def run_implementation_only_2(self, design, log_path):   
+    # def run_implementation_only_2(self, design, log_path):
             # tcl_path = self.work_dir / ("impl_2.tcl")
             # design.bitstream_path = self.cwd / (design.top + ".bit")
             # design.constraints_path = self.cwd / "constraints.xdc"
             # report_io_path = str(design.netlist_path.parent) + "/yosys_synth/report_io.txt"
-            # extract_contraints(design, report_io_path) 
+            # extract_contraints(design, report_io_path)
             # with open(tcl_path, "w") as fp:
             #     if not self.ooc:
             #         fp.write("if { [ catch {\n")
@@ -235,7 +247,7 @@ class Vivado_ImplementationTool(ImplementationTool):
             #         fp.write("write_bitstream -force " + str(design.bitstream_path) + "\n")
             #         fp.write("} ] } { exit 1 }\n")
             #     fp.write("exit\n")
-            
+
             # with open(log_path, "w") as fp:
             #     cmd = [str(VIVADO_BIN_PATH), "-mode", "tcl", "-source", str(tcl_path)]
             #     proc = subprocess.Popen(
@@ -259,6 +271,8 @@ class Vivado_ImplementationTool(ImplementationTool):
             # return self.success_status
 
     def check_impl_status(self, log_path):
+        ''' This function checks the implementation
+        status '''
         text = open(log_path).read()
 
         m = re.search(r"^ERROR:\s*(.*?)$", text, re.M)
@@ -278,7 +292,8 @@ class Vivado_ImplementationTool(ImplementationTool):
 
         # Too many I/Os
         m = re.search(
-            r"Unable to fit the design into the selected device/package$\n^DEVICE IO Count:.*?Regular IOs.*?(\d+).*?DESIGN IO Count:.*?Regular IOs.*?(\d+)",
+            r"Unable to fit the design into the selected device/package$\n"
+            r"^DEVICE IO Count:.*?Regular IOs.*?(\d+).*?DESIGN IO Count:.*?Regular IOs.*?(\d+)",
             text,
             re.M | re.S,
         )
@@ -300,6 +315,8 @@ class Vivado_ImplementationTool(ImplementationTool):
         return Status(ImplStatus.SUCCESS)
 
     def write_to_results_file(self, design, log_path, need_to_run):
+        ''' This function writes the results of the implementation
+        to a file '''
         if design.results_summary_path is None:
             print("No results path set!")
         else:
