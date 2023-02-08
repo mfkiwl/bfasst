@@ -78,9 +78,9 @@ class YosysTechSynthTool(SynthesisTool):
         except subprocess.TimeoutExpired:
             # TODO: Write to logs here
             return Status(SynthStatus.TIMEOUT)
-        else:
-            if p_status.returncode != 0:
-                return Status(SynthStatus.ERROR)
+        
+        if p_status.returncode != 0:
+            return Status(SynthStatus.ERROR)
 
         if p_status.returncode != 0:
             return Status(SynthStatus.ERROR)
@@ -128,9 +128,9 @@ class YosysTechSynthTool(SynthesisTool):
             )
         except subprocess.TimeoutExpired:
             return Status(SynthStatus.TIMEOUT)
-        else:
-            if p_status.returncode != 0:
-                return Status(SynthStatus.ERROR)
+        
+        if p_status.returncode != 0:
+            return Status(SynthStatus.ERROR)
 
         return Status(SynthStatus.SUCCESS)
 
