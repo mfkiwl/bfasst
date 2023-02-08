@@ -130,6 +130,8 @@ class VivadoImplementationTool(ImplementationTool):
             if proc.returncode:
                 return Status(ImplStatus.ERROR)
 
+        return self.success_status
+
     def run_implementation_yosys(self, design, log_path):
         ''' This function runs the implementation for Yosys '''
         tcl_path = self.work_dir / ("impl.tcl")
@@ -279,7 +281,8 @@ class VivadoImplementationTool(ImplementationTool):
         if m_status:
             return Status(ImplStatus.ERROR, m_status.group(1).strip())
 
-        return self.success_status
+        #return self.success_status # pylint says this code is unreachable,
+        # makes sense to not return just yet
 
         m_status = re.search(
             r"^Design LUT Count \((\d+)\) exceeded Device LUT Count \((\d+)\)$", text, re.M
@@ -332,7 +335,7 @@ class VivadoImplementationTool(ImplementationTool):
                     for line in log_f:
                         if line.strip() == "Final Design Statistics":
                             # There's 11 results summay lines, copy all of them
-                            for itr in range(11): # pylint says itr is never used
+                            for _ in range(11): # pylint says itr is never used
                                 res_line = next(log_f)
                                 res_f.write(res_line)
                 res_f.write("\n")
