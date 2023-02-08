@@ -1,3 +1,5 @@
+''' This runs the BFASST experiment '''
+
 #!/usr/bin/python3
 from argparse import ArgumentParser
 import datetime
@@ -8,8 +10,8 @@ from shutil import copyfileobj
 import sys
 import threading
 import time
-from prettytable import from_html_one
 import json
+from prettytable import from_html_one
 
 
 import bfasst
@@ -18,20 +20,10 @@ from bfasst.status import BfasstException, Status
 from bfasst.status import SynthStatus, ImplStatus, CompareStatus, OptStatus, BitReverseStatus
 from bfasst.utils import TermColor, print_color
 
-# Globals
-ljust = 0
-statuses = None
-running_list = None
-print_lock = None
-designs_list = []
-flows_list = ["yosys_only", "yosys_synth_vivado_impl", "vivado_impl_fasm_bit", "full_flow"]
 
-
-def print_running_list():
-    """This function prints the list of jobs that are currently executing, and how long they have been running for"""
-
-    global running_list
-    global print_lock
+def print_running_list(print_lock, running_list):
+    """This function prints the list of jobs that are currently executing,
+    and how long they have been running for"""
 
     print_lock.acquire()
     sys.stdout.write("\r\033[K")
@@ -39,7 +31,7 @@ def print_running_list():
     sys.stdout.write("Running: ")
     for design_rel_path, start_time in running_list.items()[:6]:
         sys.stdout.write(design_rel_path.name[:8] + " (")
-        sys.stdout.write(str(datetime.datetime.now() - start_time).split(".")[0])
+        sys.stdout.write(str(datetime.datetime.now() - start_time).split('.', maxsplit=1)[0])
         sys.stdout.write(") ")
     if len(running_list) > 6:
         sys.stdout.write("...")
@@ -47,17 +39,18 @@ def print_running_list():
     print_lock.release()
 
 
-def update_runtimes_thread(num_jobs):
-    """This function, designed to run in its own thread, calls print_running_list() periodically, until all jobs are done, or it is terminated."""
+def update_runtimes_thread(num_jobs, print_lock, running_list, statuses):
+    """This function, designed to run in its own thread,
+    calls print_running_list(print_lock, running_list) periodically,
+    until all jobs are done, or it is terminated."""
 
     inverval_seconds = 1.0
 
-    global statuses
     if len(statuses) == num_jobs:
         sys.stdout.write("\r\033[K")
         print("All done")
         return
-    print_running_list()
+    print_running_list(print_lock, running_list)
     threading.Timer(
         inverval_seconds,
         update_runtimes_thread,
@@ -67,11 +60,11 @@ def update_runtimes_thread(num_jobs):
     ).start()
 
 
-def chk_html(html_path):
+def chk_html(html_path, flows_list):
     '''This function checks to see if an html file exists.
-    If one does not exist one is made and filled with the 
+    If one does not exist one is made and filled with the
     base code.'''
-    
+
     if Path(html_path).resolve().is_file() == 0:
         tmp_html = open(html_path, "w")
         tmp_html.write("<!DOCTYPE html>\n<html>\n<style>\ntable, th, td     \
@@ -86,9 +79,8 @@ def chk_html(html_path):
         tmp_html.close()
 
 
-
-def write_html(htmlStr, idx_html_path):
-    '''This function reads the html for yeses and nos 
+def write_html(html_str, idx_html_path):
+    '''This function reads the html for yeses and nos
     of each experiment run and changes the color
     to green if yes and red if no.'''
 
@@ -97,32 +89,31 @@ def write_html(htmlStr, idx_html_path):
     yes_style = " style=\"background-color:darkseagreen;color:black;\""
     no_style = " style=\"background-color:lightcoral;color:black;\""
 
-    while htmlStr.find(yes_str) != -1:
-        index = htmlStr.find(yes_str)
-        htmlStr = htmlStr[:index+3] + yes_style + htmlStr[index+3:]
+    while html_str.find(yes_str) != -1:
+        index = html_str.find(yes_str)
+        html_str = html_str[:index+3] + yes_style + html_str[index+3:]
 
-    while htmlStr.find(no_str) != -1:
-        index = htmlStr.find(no_str)
-        htmlStr = htmlStr[:index+3] + no_style + htmlStr[index+3:]
+    while html_str.find(no_str) != -1:
+        index = html_str.find(no_str)
+        html_str = html_str[:index+3] + no_style + html_str[index+3:]
 
 
-    htmlFile = open(idx_html_path, "w")
+    html_file = open(idx_html_path, "w")
 
-    htmlFile.write("<!DOCTYPE html>\n<html>\n<style>\ntable, th, td \
+    html_file.write("<!DOCTYPE html>\n<html>\n<style>\ntable, th, td \
     {\n\tborder:1px solid black;\n}\n</style>\n<body>\n\n<h2>BFASST \
      Experiment Runs and Results</h2>\n")
 
-    htmlFile.write("\n" + htmlStr)
+    html_file.write("\n" + html_str)
 
-    htmlFile.write("\n\n<p>To run these designs yourself, check out \
+    html_file.write("\n\n<p>To run these designs yourself, check out \
      the <a href=\"https://github.com/byuccl/bfasst\">BFASST Github \
       repository</a>.</p>\n\n</body>\n</html>")
 
-    htmlFile.close()
+    html_file.close()
 
 
-
-def html_update(equivalence, design, flow_fcn):
+def html_update(equivalence, design, flow_fcn, flows_list):
     '''This function updates the html table. It converts
     the experiments that output equivalent to table entries
     of yes and not equivanlent experiments to tabke entries
@@ -145,7 +136,7 @@ def html_update(equivalence, design, flow_fcn):
         if flow == curr_flow:
             flow_dict[flow] = table_value
 
-    chk_html(idx_html_path)
+    chk_html(idx_html_path, flows_list)
     with open(idx_html_path, "r") as fp:
         html = fp.read()
 
@@ -153,10 +144,11 @@ def html_update(equivalence, design, flow_fcn):
     x_json = json.loads(x.get_json_string())
 
     if design in x.get_json_string():
-        for i in range(len(x_json)):
-            curr_x_json = x_json[i]
+        for i, curr_x_json in enumerate(x_json):
+            #curr_x_json = x_json[i]
             if design in str(curr_x_json):
-                if curr_x_json[curr_flow] != flow_dict[curr_flow] and flow_dict[curr_flow] != "Not Run Yet":
+                if (curr_x_json[curr_flow] != flow_dict[curr_flow]
+                and flow_dict[curr_flow] != "Not Run Yet"):
                     curr_x_json[curr_flow] = flow_dict[curr_flow]
                 for f in flows_list:
                     if f != curr_flow:
@@ -171,42 +163,41 @@ def html_update(equivalence, design, flow_fcn):
     write_html(x.get_html_string(), idx_html_path)
 
 
-def list_maker(design_dict={}, go=False):
+def list_maker(flows_list, design_dict=None, go_make=False):
     '''This function makes a list of each experiment
     with the design being tested, the result of the experiment,
     and the flow used.'''
 
-    global designs_list
+    if design_dict is None:
+        design_dict = {}
     idx_html_path = "./index.html"
     if design_dict != {}:
         file1 = open("temp.txt", "a+")  # append mode
         json.dump(design_dict, file1)
         file1.write("\n")
         file1.close()
-    if go:
+    if go_make:
         try:
             file1 = open("temp.txt", "r")
             line = file1.readline()
             while line:
                 json_temp = json.loads(line)
                 line = file1.readline()
-                html_update(json_temp["status"], json_temp["design"], json_temp["flow_fcn"])
+                html_update(json_temp["status"], json_temp["design"],
+                json_temp["flow_fcn"], flows_list)
             file1.close()
             pathlib.Path("./temp.txt").unlink()
             print("index.html updated") # Updated
         except:
-            chk_html(idx_html_path)
+            chk_html(idx_html_path, flows_list)
             print("index.html unchanged") # Do nothing
 
 
-def run_design(design, design_dir, flow_fcn, flow_args):
+def run_design(design, design_dir, flow_fcn, flow_args, print_lock, running_list, flows_list):
     """This function runs a single job, running the selected CAD flow for one design"""
 
-    global running_list
-    global designs_list
-
     running_list[design.rel_path] = datetime.datetime.now()
-    print_running_list()
+    print_running_list(print_lock, running_list)
 
     # time.sleep(random.randint(1,2))
     status = None
@@ -221,24 +212,25 @@ def run_design(design, design_dir, flow_fcn, flow_args):
             copyfileobj(buf, f)
         cleanup_redirect()
         path = pathlib.PurePath(design_dir)
-        design_dict = {"design": path.name, "status": str(status), "flow_fcn": str(flow_fcn).casefold()}
+        design_dict = {"design": path.name, "status": str(status),
+        "flow_fcn": str(flow_fcn).casefold()}
         design_dict_copy = design_dict.copy()
-        list_maker(design_dict=design_dict_copy)
+        list_maker(flows_list, design_dict=design_dict_copy)
     return (design, status)
 
 
 def on_error(e, pool, update_process):
-    """This should be called when a job process raises an exception.  This shuts down all jobs in the pool, as well as the update_process."""
+    """This should be called when a job process raises an exception.
+    This shuts down all jobs in the pool, as well as the update_process."""
     pool.terminate()
     if update_process is not None:
         update_process.terminate()
     raise e
 
 
-def job_done(retval):
-    """Callback on job completion.  Removes job from the running_list, prints the job completion status, and saves the return status."""
-    global running_list
-    global print_lock
+def job_done(retval, print_lock, running_list, ljust, statuses):
+    """Callback on job completion.  Removes job from the running_list, prints the
+    job completion status, and saves the return status."""
 
     design = retval[0]
     status = retval[1]
@@ -254,17 +246,17 @@ def job_done(retval):
     print_lock.release()
 
     del running_list[design.rel_path]
-    print_running_list()
+    print_running_list(print_lock, running_list)
 
     statuses.append(status)
 
 
 def main(experiment_yaml, threads):
-    global ljust
-    global statuses
-    global running_list
-    global print_lock
-    global designs_list
+    ''' The main experiment function '''
+
+    statuses = None
+    designs_list = []
+    flows_list = ["yosys_only", "yosys_synth_vivado_impl", "vivado_impl_fasm_bit", "full_flow"]
 
     enable_proxy()  # Enable STDOUT redirects
 
@@ -310,13 +302,17 @@ def main(experiment_yaml, threads):
         target=update_runtimes_thread,
         args=[len(designs_to_run),],
     )
+
+    def job_callback(retval):
+        job_done(retval, print_lock, running_list, ljust, statuses)
+
     update_process.start()
     with multiprocessing.Pool(processes=no_threads) as pool:
         for design_to_run in designs_to_run:
             pool.apply_async(
                 run_design,
                 design_to_run,
-                callback=job_done,
+                callback=job_callback,
                 error_callback=lambda e: on_error(e, pool, update_process),
             )
         try:
@@ -347,20 +343,20 @@ def main(experiment_yaml, threads):
 
     j = 30
     print("Synth Error:".ljust(j),
-          sum(1 for s in statuses if type(s.status) == SynthStatus and s.error),
+          sum(1 for s in statuses if isinstance(s.status) == SynthStatus and s.error),
     )
     print("Opt Error:".ljust(j),
-           sum(1 for s in statuses if type(s.status) == OptStatus and s.error),
+           sum(1 for s in statuses if isinstance(s.status) == OptStatus and s.error),
     )
     print("Impl Error:".ljust(j),
-          sum(1 for s in statuses if type(s.status) == ImplStatus and s.error),
+          sum(1 for s in statuses if isinstance(s.status) == ImplStatus and s.error),
     )
     print("Bit Reverse Error:".ljust(j),
-          sum(1 for s in statuses if type(s.status) == BitReverseStatus and s.error),
+          sum(1 for s in statuses if isinstance(s.status) == BitReverseStatus and s.error),
     )
     print("Compare Error:".ljust(j),
           sum(1 for s in statuses
-                    if type(s.status) == CompareStatus
+                    if isinstance(s.status) == CompareStatus
                     and s.error
                     and s.status != CompareStatus.NOT_EQUIVALENT),
     )
@@ -373,11 +369,11 @@ def main(experiment_yaml, threads):
 
     # print(types)
 
-    for i in range(len(designs_list)):
+    for i in enumerate(designs_list):
         print(designs_list[i])
 
     print("-" * 80)
-    list_maker(go=True)
+    list_maker(flows_list, go_make=True)
     print("Execution took", round(t_end - t_start, 1), "seconds")
 
 
