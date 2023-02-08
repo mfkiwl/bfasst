@@ -66,7 +66,7 @@ class VivadoImplementationTool(ImplementationTool):
         self.print_running_impl()
 
         # Run implementation
-        status = self.run_implementation(design)
+        status = self.run_implementation(design, log_path)
 
         # Check implementation log
         status = self.check_impl_status(log_path)
@@ -76,7 +76,7 @@ class VivadoImplementationTool(ImplementationTool):
 
         return self.success_status
 
-    def run_implementation(self, design): # pylint says log_path is not used
+    def run_implementation(self, design, log_path):
         ''' This function runs the implementation'''
         tcl_path = self.work_dir / ("impl.tcl")
 
@@ -109,7 +109,7 @@ class VivadoImplementationTool(ImplementationTool):
             # fp.write("write_edif -force {" + str(design.netlist_path) + "}\n")
             fp.write("} ] } { exit 1 }\n")
             fp.write("exit\n")
-    
+
         with open(log_path, "w") as fp:
             cmd = [str(VIVADO_BIN_PATH), "-mode", "tcl", "-source", str(tcl_path)]
             proc = subprocess.Popen(
@@ -124,12 +124,12 @@ class VivadoImplementationTool(ImplementationTool):
                 sys.stdout.flush()
                 fp.write(line)
                 fp.flush()
-                if re.match("\s*ERROR:", line):
+                if re.match("\\s*ERROR:", line):
                     proc.kill()
             proc.communicate()
             if proc.returncode:
                 return Status(ImplStatus.ERROR)
-    
+
     def run_implementation_yosys(self, design, log_path):
         ''' This function runs the implementation for Yosys '''
         tcl_path = self.work_dir / ("impl.tcl")
@@ -275,30 +275,30 @@ class VivadoImplementationTool(ImplementationTool):
         status '''
         text = open(log_path).read()
 
-        m = re.search(r"^ERROR:\s*(.*?)$", text, re.M)
-        if m:
-            return Status(ImplStatus.ERROR, m.group(1).strip())
-        else:
-            return self.success_status
+        m_status = re.search(r"^ERROR:\s*(.*?)$", text, re.M)
+        if m_status:
+            return Status(ImplStatus.ERROR, m_status.group(1).strip())
+        
+        return self.success_status
 
-        m = re.search(
+        m_status = re.search(
             r"^Design LUT Count \((\d+)\) exceeded Device LUT Count \((\d+)\)$", text, re.M
         )
-        if m:
-            return Status(ImplStatus.TOO_MANY_LUTS, m.group(1) + "/" + m.group(2))
-        m = re.search(r"^Design FF Count \((\d+)\) exceeded Device FF Count \((\d+)\)$", text, re.M)
-        if m:
-            return Status(ImplStatus.TOO_MANY_FF, m.group(1) + "/" + m.group(2))
+        if m_status:
+            return Status(ImplStatus.TOO_MANY_LUTS, m_status.group(1) + "/" + m_status.group(2))
+        m_status = re.search(r"^Design FF Count \((\d+)\) exceeded Device FF Count \((\d+)\)$", text, re.M)
+        if m_status:
+            return Status(ImplStatus.TOO_MANY_FF, m_status.group(1) + "/" + m_status.group(2))
 
         # Too many I/Os
-        m = re.search(
+        m_status = re.search(
             r"Unable to fit the design into the selected device/package$\n"
             r"^DEVICE IO Count:.*?Regular IOs.*?(\d+).*?DESIGN IO Count:.*?Regular IOs.*?(\d+)",
             text,
             re.M | re.S,
         )
-        if m:
-            return Status(ImplStatus.TOO_MANY_IO, m.group(2) + "/" + m.group(1))
+        if m_status:
+            return Status(ImplStatus.TOO_MANY_IO, m_status.group(2) + "/" + m_status.group(1))
 
         # if too_large_str:
         #     err_str += "Design does not fit. " + too_large_str

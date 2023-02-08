@@ -20,7 +20,7 @@ from bfasst.synth.yosys import Yosys_Tech_SynthTool
 from bfasst.opt.ic2_lse import Ic2LseOptTool
 from bfasst.opt.ic2_synplify import IC2_Synplify_OptTool
 from bfasst.impl.ic2 import IC2_ImplementationTool
-from bfasst.impl.vivado import Vivado_ImplementationTool
+from bfasst.impl.vivado import VivadoImplementationTool
 from bfasst.reverse_bit.xray import XRay_ReverseBitTool
 from bfasst.reverse_bit.icestorm import Icestorm_ReverseBitTool
 from bfasst.compare.conformal import ConformalCompareTool
@@ -156,14 +156,14 @@ def vivado_synth(design, build_dir, flow_args):
 
 def vivado_impl(design, build_dir, flow_args, ooc=False):
     """Implement using Vivado"""
-    impl_tool = Vivado_ImplementationTool(build_dir, flow_args, ooc)
+    impl_tool = VivadoImplementationTool(build_dir, flow_args, ooc)
     return impl_tool.implement_bitstream(design)
 
 
 def vivado_just_impl(design, build_dir, flow_args, ooc=False):
     '''Implement using Vivado'''
     log_path = "vivado_impl" + bfasst.config.IMPL_LOG_NAME
-    impl_tool = Vivado_ImplementationTool(build_dir, flow_args, ooc)
+    impl_tool = VivadoImplementationTool(build_dir, flow_args, ooc)
     return impl_tool.run_implementation_yosys(design, log_path)
     # return impl_tool.run_implementation_only_2(design, log_path)
 
@@ -443,7 +443,8 @@ def flow_yosys_only(design, flow_args, build_dir):
     design.results_summary_path = build_dir / "results_summary.txt"
 
     if design.top_file_path.name != design.top:
-        design.top_file_path = pathlib.PosixPath(str(design.top_file_path.parent) + "/" + str(design.top) + ".v")
+        design.top_file_path = pathlib.PosixPath(str(design.top_file_path.parent) +
+        "/" + str(design.top) + ".v")
 
     # Run the Yosys synthesizer
     status = yosys_synth(design, build_dir, flow_args[FlowArgs.SYNTH])
@@ -452,7 +453,7 @@ def flow_yosys_only(design, flow_args, build_dir):
     assert design.netlist_path is not None
     assert design.reversed_netlist_path is not None
 
-    #temp_gold_files = design.get_golden_files()
+    temp_gold_files = design.get_golden_files()
     gold_files = [] # pylint says yosys_netlist_path is never used
     for files in temp_gold_files:
         if files not in gold_files:
@@ -475,7 +476,8 @@ def flow_yosys_synth_vivado_impl(design, flow_args, build_dir):
     design.results_summary_path = build_dir / "results_summary.txt"
 
     if design.top_file_path.name != design.top:
-        design.top_file_path = pathlib.PosixPath(str(design.top_file_path.parent) + "/" + str(design.top) + ".v")
+        design.top_file_path = pathlib.PosixPath(str(design.top_file_path.parent) +
+        "/" + str(design.top) + ".v")
 
     # Run the Yosys synthesizer
     status = yosys_synth(design, build_dir, flow_args[FlowArgs.SYNTH])
@@ -516,7 +518,8 @@ def flow_vivado_impl_fasm_bit(design, flow_args, build_dir):
     design.results_summary_path = build_dir / "results_summary.txt"
 
     if design.top_file_path.name != design.top:
-        design.top_file_path = pathlib.PosixPath(str(design.top_file_path.parent) + "/" + str(design.top) + ".v")
+        design.top_file_path = pathlib.PosixPath(str(design.top_file_path.parent) +
+        "/" + str(design.top) + ".v")
 
     # Run the Yosys synthesizer
     status = yosys_synth(design, build_dir, flow_args[FlowArgs.SYNTH])
