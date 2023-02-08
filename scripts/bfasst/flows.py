@@ -16,7 +16,7 @@ from bfasst.utils import error
 from bfasst.synth.ic2_lse import Ic2LseSynthesisTool
 from bfasst.synth.ic2_synplify import IC2_Synplify_SynthesisTool
 from bfasst.synth.vivado import VivadoSynthesisTool
-from bfasst.synth.yosys import Yosys_Tech_SynthTool
+from bfasst.synth.yosys import YosysTechSynthTool
 from bfasst.opt.ic2_lse import Ic2LseOptTool
 from bfasst.opt.ic2_synplify import IC2_Synplify_OptTool
 from bfasst.impl.ic2 import IC2_ImplementationTool
@@ -171,7 +171,7 @@ def vivado_just_impl(design, build_dir, flow_args, ooc=False):
 def yosys_synth(design, build_dir, flow_args):
     '''Synthesize using Yosys'''
     vendor = Vendor.XILINX if not flow_args else Vendor[flow_args.upper()]
-    synth_tool = Yosys_Tech_SynthTool(build_dir, vendor)
+    synth_tool = YosysTechSynthTool(build_dir, vendor)
     return synth_tool.create_netlist(design)
 
 
@@ -743,7 +743,7 @@ def flow_gather_impl_data(design, flow_args, build_dir):
     status = icestorm_rev_bit(design, build_dir, flow_args)
 
     # Clean up project directories so we get fresh results later
-    shutil.rmtree(build_dir / Yosys_Tech_SynthTool.TOOL_WORK_DIR)
+    shutil.rmtree(build_dir / YosysTechSynthTool.TOOL_WORK_DIR)
 
     # TODO check that this line should be added.
     shutil.rmtree(build_dir / IC2_Synplify_OptTool.TOOL_WORK_DIR)
