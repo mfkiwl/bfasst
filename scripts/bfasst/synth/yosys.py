@@ -1,5 +1,7 @@
+''' This file contains Yosys synthesis tools'''
+
 import os
-import shutil
+#import shutil # pylint says this import is never used
 import subprocess
 import time
 
@@ -15,20 +17,22 @@ YOSYS_SCRIPT_FILE = "script.yos"
 YOSYS_LOG_FILE = "yosys.log"
 
 
-class Yosys_Tech_SynthTool(SynthesisTool):
+class YosysTechSynthTool(SynthesisTool):
+    '''This is the Yosys
+    Synthesis tool'''
     TOOL_WORK_DIR = "yosys_synth"
 
     def __init__(self, cwd, vendor):
         super().__init__(cwd)
 
-        assert type(vendor) is flows.Vendor
+        assert isinstance(vendor) is flows.Vendor
         self.vendor = vendor
 
     def create_netlist(self, design):
 
         temp_gold_files = design.get_golden_files()
         for files in temp_gold_files:
-            if files.suffix == ".vhd" or files.suffix == ".vhdl":
+            if files.suffix in ".vhd" or files.suffix in ".vhdl":
                 return Status(SynthStatus.VHDL)
 
         # Target netlist output
@@ -65,7 +69,7 @@ class Yosys_Tech_SynthTool(SynthesisTool):
         #     YOSYS_LOG_FILE,
         # ]
         try:
-            p = subprocess.run(
+            p_status = subprocess.run(
                 cmd,
                 cwd=self.work_dir,
                 stdout=subprocess.DEVNULL,
@@ -75,16 +79,17 @@ class Yosys_Tech_SynthTool(SynthesisTool):
             # TODO: Write to logs here
             return Status(SynthStatus.TIMEOUT)
         else:
-            if p.returncode != 0:
+            if p_status.returncode != 0:
                 return Status(SynthStatus.ERROR)
 
-        if p.returncode != 0:
+        if p_status.returncode != 0:
             return Status(SynthStatus.ERROR)
-        else:
-            self.write_to_results_file(design, log_path)
-            return Status(SynthStatus.SUCCESS)
+
+        self.write_to_results_file(design, log_path)
+        return Status(SynthStatus.SUCCESS)
 
     def create_yosys_script(self, design, netlist_path):
+        ''' This creates the Yosys script'''
         # It's a little messy, but I want to just call my existing script that
         #   does this
         path_to_script_builder = paths.SCRIPTS_PATH / "yosys" / "createYosScript.py"
@@ -109,7 +114,7 @@ class Yosys_Tech_SynthTool(SynthesisTool):
             file_paths += " " + str(design.rel_path / design_file)
         # TODO: Add the same error handling as in other synth flows
         try:
-            p = subprocess.run(
+            p_status = subprocess.run(
                 [
                     "python3",
                     str(path_to_script_builder),
@@ -124,12 +129,13 @@ class Yosys_Tech_SynthTool(SynthesisTool):
         except subprocess.TimeoutExpired:
             return Status(SynthStatus.TIMEOUT)
         else:
-            if p.returncode != 0:
+            if p_status.returncode != 0:
                 return Status(SynthStatus.ERROR)
 
         return Status(SynthStatus.SUCCESS)
 
     def write_to_results_file(self, design, log_path):
+        ''' This writes the results to a file'''
         with open(design.results_summary_path, "a") as res_f:
             time_modified = time.ctime(os.path.getmtime(log_path))
             res_f.write("Results Summary (Yosys) (" + time_modified + ")\n")

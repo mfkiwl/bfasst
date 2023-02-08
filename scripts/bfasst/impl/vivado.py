@@ -278,7 +278,7 @@ class VivadoImplementationTool(ImplementationTool):
         m_status = re.search(r"^ERROR:\s*(.*?)$", text, re.M)
         if m_status:
             return Status(ImplStatus.ERROR, m_status.group(1).strip())
-        
+
         return self.success_status
 
         m_status = re.search(
@@ -286,7 +286,8 @@ class VivadoImplementationTool(ImplementationTool):
         )
         if m_status:
             return Status(ImplStatus.TOO_MANY_LUTS, m_status.group(1) + "/" + m_status.group(2))
-        m_status = re.search(r"^Design FF Count \((\d+)\) exceeded Device FF Count \((\d+)\)$", text, re.M)
+        m_status = re.search(r"^Design FF Count \((\d+)\) exceeded Device FF Count"
+        r" \((\d+)\)$", text, re.M)
         if m_status:
             return Status(ImplStatus.TOO_MANY_FF, m_status.group(1) + "/" + m_status.group(2))
 
@@ -331,7 +332,7 @@ class VivadoImplementationTool(ImplementationTool):
                     for line in log_f:
                         if line.strip() == "Final Design Statistics":
                             # There's 11 results summay lines, copy all of them
-                            for itr in range(11):
+                            for itr in range(11): # pylint says itr is never used
                                 res_line = next(log_f)
                                 res_f.write(res_line)
                 res_f.write("\n")

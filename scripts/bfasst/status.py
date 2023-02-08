@@ -1,3 +1,5 @@
+''' This contains status checks for BFASST'''
+
 import enum
 
 
@@ -77,7 +79,7 @@ msg_map = {
     ErrorInjectionStatus.ERROR : "Error Injection Unsuccessful",
     ErrorInjectionStatus.NO_YAML : "No YAML for Error Injection",
     ErrorInjectionStatus.FCN_SUCCESS : "FCN Successful",
-    ErrorInjectionStatus.FCN_ERROR : "FCN Error",    
+    ErrorInjectionStatus.FCN_ERROR : "FCN Error",
 }
 
 class BfasstException(Exception):
