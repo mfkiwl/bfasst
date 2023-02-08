@@ -6,7 +6,8 @@ import subprocess
 import time
 
 import bfasst
-from bfasst import paths, flows
+from bfasst import paths
+from bfasst.vendor import Vendor
 from bfasst.synth.base import SynthesisTool
 from bfasst.status import Status, SynthStatus
 
@@ -25,7 +26,7 @@ class YosysTechSynthTool(SynthesisTool):
     def __init__(self, cwd, vendor):
         super().__init__(cwd)
 
-        assert isinstance(vendor) is flows.Vendor
+        assert isinstance(vendor) is Vendor
         self.vendor = vendor
 
     def create_netlist(self, design):
@@ -93,9 +94,9 @@ class YosysTechSynthTool(SynthesisTool):
         # It's a little messy, but I want to just call my existing script that
         #   does this
         path_to_script_builder = paths.SCRIPTS_PATH / "yosys" / "createYosScript.py"
-        if self.vendor == flows.Vendor.XILINX:
+        if self.vendor == Vendor.XILINX:
             script_template_file = paths.YOSYS_RESOURCES / YOSYS_XILINX_SYNTH_SCRIPT_TEMPLATE
-        elif self.vendor == flows.Vendor.LATTICE:
+        elif self.vendor == Vendor.LATTICE:
             script_template_file = paths.YOSYS_RESOURCES / YOSYS_LATTICE_SYNTH_SCRIPT_TEMPLATE
         else:
             script_template_file = paths.YOSYS_RESOURCES / YOSYS_SCRIPT_TEMPLATE
