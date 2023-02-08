@@ -7,3 +7,4 @@ class Vendor(Enum):
 
     LATTICE = 1
     XILINX = 2
+    
