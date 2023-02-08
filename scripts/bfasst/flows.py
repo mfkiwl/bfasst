@@ -28,7 +28,7 @@ from bfasst.compare.yosys import Yosys_CompareTool
 from bfasst.compare.waveform import WaveformCompareTool
 from bfasst.compare.onespin import OneSpin_CompareTool
 from bfasst.error_injection.error_injector import ErrorInjector_ErrorInjectionTool
-
+from bfasst.vendor import Vendor
 
 class FlowArgs(Enum):
     """An enum describing the different places arguments go"""
@@ -88,14 +88,6 @@ flow_fcn_map = {
     Flows.FULL_FLOW: lambda: flow_full_flow,
 }
 
-
-class Vendor(Enum):
-    """Enum differentiating between different fpga vendors"""
-
-    LATTICE = 1
-    XILINX = 2
-
-
 def get_flow_fcn_by_name(flow_name):
     """Takes a string representing the flow_name, and returns a function implementing that flow"""
     try:
@@ -142,7 +134,7 @@ def icestorm_rev_bit(design, build_dir, flow_args):
 
 def conformal_cmp(design, build_dir, flow_args):
     """Compare netlists using Conformal"""
-    vendor = Vendor.XILINX if not flow_args else Vendor[flow_args.upper()]
+    vendor = vendor.Vendor.XILINX if not flow_args else Vendor[flow_args.upper()]
     compare_tool = ConformalCompareTool(build_dir, vendor)
     with bfasst.conformal_lock:
         return compare_tool.compare_netlists(design)
