@@ -1,4 +1,4 @@
-''' This runs the BFASST experiment '''
+''' This runs the BFASST experiment(s) '''
 
 #!/usr/bin/python3
 from argparse import ArgumentParser
