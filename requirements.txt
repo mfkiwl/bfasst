@@ -10,3 +10,4 @@ spydrnet
 werkzeug
 pylint
 prettytable
+JPype1

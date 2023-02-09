@@ -38,15 +38,15 @@ class VivadoImplementationTool(ImplementationTool):
     ''' This class is used for Vivado implementation tools'''
     TOOL_WORK_DIR = "vivado_impl"
 
-
     def __init__(self, cwd, flow_args="", ooc=False):
         super().__init__(cwd, flow_args)
         self.ooc = ooc
 
-
     def implement_bitstream(self, design):
         log_path = self.work_dir / bfasst.config.IMPL_LOG_NAME
         design.impl_netlist_path = self.cwd / (design.top + "_impl.v")
+        design.impl_edif_path = design.impl_netlist_path.with_suffix(".edf")
+        design.xilinx_impl_checkpoint_path = self.work_dir / "design.dcp"
         design.bitstream_path = self.cwd / (design.top + ".bit")
 
         # Check for up to date previous run
@@ -78,6 +78,7 @@ class VivadoImplementationTool(ImplementationTool):
 
     def run_implementation(self, design, log_path):
         ''' This function runs the implementation'''
+
         tcl_path = self.work_dir / ("impl.tcl")
 
         with open(tcl_path, "w") as fp:
@@ -90,9 +91,7 @@ class VivadoImplementationTool(ImplementationTool):
 
             fp.write("set_property design_mode GateLvl [current_fileset]\n")
             fp.write(
-                "set_property edif_top_file "
-                + str(design.netlist_path)
-                + " [current_fileset]\n"
+                "set_property edif_top_file " + str(design.netlist_path) + " [current_fileset]\n"
             )
             fp.write("link_design -part " + bfasst.config.PART + "\n")
             if not self.ooc:
@@ -100,9 +99,11 @@ class VivadoImplementationTool(ImplementationTool):
             fp.write("opt_design\n")
             fp.write("place_design\n")
             fp.write("route_design\n")
+
             fp.write("write_checkpoint -force -file " + str(self.work_dir / "design.dcp") + "\n")
             # fp.write("write_edif -force -file " + str(design.impl_netlist_path.with_suffix
             #(".edf")) + "\n")
+
             fp.write("write_verilog -force -file " + str(design.impl_netlist_path) + "\n")
             if not self.ooc:
                 fp.write("write_bitstream -force " + str(design.bitstream_path) + "\n")
@@ -124,6 +125,7 @@ class VivadoImplementationTool(ImplementationTool):
                 sys.stdout.flush()
                 fp.write(line)
                 fp.flush()
+
                 if re.match("\\s*ERROR:", line):
                     proc.kill()
             proc.communicate()
@@ -228,6 +230,7 @@ class VivadoImplementationTool(ImplementationTool):
                 fp.write(line)
                 fp.flush()
                 if re.match("\\s*ERROR:", line):
+
                     proc.kill()
             proc.communicate()
             if proc.returncode:
@@ -307,20 +310,12 @@ class VivadoImplementationTool(ImplementationTool):
         # if too_large_str:
         #     err_str += "Design does not fit. " + too_large_str
 
-        # # Invalid primitives
-        # m = re.search("^Error: (Module.*?is not a valid primitive.)", text, re.M)
-        # if (m):
-        #     err_str += m.group(1)
-
-        # if (err_str):
-        #     sys.stdout.write(err_str)
-        #     return True
-
-        return Status(ImplStatus.SUCCESS)
+        return self.success_status
 
     def write_to_results_file(self, design, log_path, need_to_run):
         ''' This function writes the results of the implementation
         to a file '''
+
         if design.results_summary_path is None:
             print("No results path set!")
         else:
@@ -335,7 +330,9 @@ class VivadoImplementationTool(ImplementationTool):
                     for line in log_f:
                         if line.strip() == "Final Design Statistics":
                             # There's 11 results summay lines, copy all of them
+
                             for _ in range(11): # pylint says itr is never used
+
                                 res_line = next(log_f)
                                 res_f.write(res_line)
                 res_f.write("\n")

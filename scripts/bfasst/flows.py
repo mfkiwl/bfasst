@@ -12,6 +12,7 @@ import shutil
 
 import bfasst
 from bfasst.design import Design
+from bfasst.transform.xilinx_phys_netlist import XilinxPhysNetlist
 from bfasst.utils import error
 from bfasst.synth.ic2_lse import Ic2LseSynthesisTool
 from bfasst.synth.ic2_synplify import IC2_Synplify_SynthesisTool
@@ -63,6 +64,7 @@ class Flows(Enum):
     YOSYS_SYNTH_VIVADO_IMPL = "yosys_synth_vivado_impl"
     VIVADO_IMPL_FASM_BIT = "vivado_impl_fasm_bit"
     FULL_FLOW = "full_flow"
+    XILINX_PHYS_NETLIST = "xilinx_phys_netlist"
 
 
 # This uses a lambda so that I don't have to define all of the functions before this point
@@ -86,6 +88,7 @@ flow_fcn_map = {
     Flows.YOSYS_SYNTH_VIVADO_IMPL: lambda: flow_yosys_synth_vivado_impl,
     Flows.VIVADO_IMPL_FASM_BIT: lambda: flow_vivado_impl_fasm_bit,
     Flows.FULL_FLOW: lambda: flow_full_flow,
+    Flows.XILINX_PHYS_NETLIST: lambda: flow_xilinx_phys_netlist,
 }
 
 def get_flow_fcn_by_name(flow_name):
@@ -222,9 +225,7 @@ def flow_ic2_lse_conformal(design, flow_args, build_dir):
     design.compare_golden_files.append(design.top_file)
     design.compare_golden_files.extend(design.get_support_files())
     design.compare_golden_files_paths.append(design.path / design.top_file)
-    design.compare_golden_files_paths.extend(
-        [design.path / f for f in design.get_support_files()]
-    )
+    design.compare_golden_files_paths.extend([design.path / f for f in design.get_support_files()])
     design.golden_is_verilog = design.top_is_verilog()
     status = conformal_cmp(design, build_dir, flow_args[FlowArgs.CMP])
     return status
@@ -247,6 +248,17 @@ def flow_xilinx(design, flow_args, build_dir):
     status = vivado_synth(design, build_dir, flow_args[FlowArgs.SYNTH])
     ooc = "out_of_context" in flow_args[FlowArgs.SYNTH]
     status = vivado_impl(design, build_dir, flow_args[FlowArgs.IMPL], ooc)
+    return status
+
+
+def flow_xilinx_phys_netlist(design, flow_args, build_dir):
+    """Run Xilinx synthesis and implementation"""
+    status = vivado_synth(design, build_dir, flow_args[FlowArgs.SYNTH])
+    ooc = "out_of_context" in flow_args[FlowArgs.SYNTH]
+    status = vivado_impl(design, build_dir, flow_args[FlowArgs.IMPL], ooc)
+
+    phy_netlist_tool = XilinxPhysNetlist(build_dir)
+    phy_netlist_tool.run(design)
     return status
 
 
@@ -341,9 +353,7 @@ def flow_ic2_synplify_conformal(design, flow_args, build_dir):
     design.compare_golden_files.append(design.top_file)
     design.compare_golden_files.extend(design.get_support_files())
     design.compare_golden_files_paths.append(design.path / design.top_file)
-    design.compare_golden_files_paths.extend(
-        [design.path / f for f in design.get_support_files()]
-    )
+    design.compare_golden_files_paths.extend([design.path / f for f in design.get_support_files()])
     design.golden_is_verilog = design.top_is_verilog()
 
     # TODO no vendor was originally specified here
@@ -366,9 +376,7 @@ def flow_synplify_ic2_icestorm_onespin(design, flow_args, build_dir):
     design.compare_golden_files.append(design.top_file)
     design.compare_golden_files.extend(design.get_support_files())
     design.compare_golden_files_paths.append(design.path / design.top_file)
-    design.compare_golden_files_paths.extend(
-        [design.path / f for f in design.get_support_files()]
-    )
+    design.compare_golden_files_paths.extend([design.path / f for f in design.get_support_files()])
     design.golden_is_verilog = design.top_is_verilog()
 
     status = onespin_cmp(design, build_dir, flow_args[FlowArgs.CMP])
